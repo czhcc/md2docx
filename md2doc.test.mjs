@@ -45,6 +45,32 @@ test("renders common markdown blocks for rich docx paste", () => {
   assert.match(rendered, /<td>B<\/td>/);
 });
 
+test("renders mermaid code fences as diagram placeholders", () => {
+  const source = [
+    "```mermaid",
+    "flowchart LR",
+    "  A[开始] --> B[结束]",
+    "```",
+  ].join("\n");
+
+  const rendered = markdownToHtml(source);
+
+  assert.match(rendered, /class="mermaid-diagram"/);
+  assert.match(rendered, /data-mermaid="/);
+  assert.match(rendered, /flowchart LR/);
+  assert.match(rendered, /A\[开始\] --&gt; B\[结束\]/);
+  assert.doesNotMatch(rendered, /language-mermaid/);
+});
+
+test("page loads Mermaid and exposes a render hook", () => {
+  assert.match(html, /mermaid@11\/dist\/mermaid\.esm\.min\.mjs/);
+  assert.match(html, /mermaid\.initialize\(\{ startOnLoad: false/);
+  assert.match(html, /renderMermaidDiagrams/);
+  assert.match(html, /window\.md2docRenderMermaid/);
+  assert.match(html, /prepareMermaidImagesForCopy/);
+  assert.match(html, /toDataURL\("image\/png"\)/);
+});
+
 test("page exposes rich clipboard html copy support", () => {
   assert.match(html, /ClipboardItem/);
   assert.match(html, /text\/html/);
@@ -126,4 +152,43 @@ test("clipboard html preserves section gaps, blockquote shading, and separators 
   assert.match(clipboardHtml, /border-left: 3pt solid #1565c0/);
   assert.match(clipboardHtml, /data-md2doc-separator="true"/);
   assert.match(clipboardHtml, /border-top: 1px solid #cbd5e1/);
+});
+
+test("clipboard html converts rendered Mermaid diagrams to pasted images", () => {
+  const preview = {
+    innerHTML: [
+      '<div class="mermaid-diagram" data-word-image="data:image/png;base64,AAAA">',
+      '<svg viewBox="0 0 100 50"><text>流程图</text></svg>',
+      "</div>",
+    ].join(""),
+  };
+
+  const clipboardHtml = buildClipboardHtml(preview);
+
+  assert.match(clipboardHtml, /data-md2doc-mermaid-image="true"/);
+  assert.match(clipboardHtml, /<img[^>]+src="data:image\/png;base64,AAAA"/);
+  assert.match(clipboardHtml, /max-width: 100%/);
+  assert.doesNotMatch(clipboardHtml, /<svg/);
+});
+
+test("clipboard html removes all Mermaid SVG label text after image conversion", () => {
+  const preview = {
+    innerHTML: [
+      '<div class="mermaid-diagram" data-word-image="data:image/png;base64,BBBB">',
+      '<svg viewBox="0 0 100 50">',
+      '<foreignObject><div><span>输入 Markdown</span></div></foreignObject>',
+      '<foreignObject><div><span>实时预览</span></div></foreignObject>',
+      '<foreignObject><div><span>复制富文本</span></div></foreignObject>',
+      "</svg>",
+      "</div>",
+    ].join(""),
+  };
+
+  const clipboardHtml = buildClipboardHtml(preview);
+
+  assert.match(clipboardHtml, /<img[^>]+src="data:image\/png;base64,BBBB"/);
+  assert.doesNotMatch(clipboardHtml, /输入 Markdown/);
+  assert.doesNotMatch(clipboardHtml, /实时预览/);
+  assert.doesNotMatch(clipboardHtml, /复制富文本/);
+  assert.doesNotMatch(clipboardHtml, /foreignObject/);
 });

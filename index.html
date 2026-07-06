@@ -288,6 +288,40 @@
       background: #cbd5e1;
     }
 
+    .doc-preview .mermaid-diagram {
+      margin: 1em 0;
+      padding: 16px;
+      border: 1px solid #d9e2ec;
+      border-radius: 6px;
+      background: #ffffff;
+      overflow-x: auto;
+    }
+
+    .doc-preview .mermaid-diagram svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .doc-preview .mermaid-source,
+    .doc-preview .mermaid-error {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background: #f3f4f6;
+      color: #111827;
+      font: 13px/1.55 Consolas, "Courier New", monospace;
+      white-space: pre-wrap;
+    }
+
+    .doc-preview .mermaid-error {
+      border-color: #f5c2c7;
+      background: #fff5f5;
+      color: #842029;
+    }
+
     @media (max-width: 860px) {
       .toolbar {
         align-items: stretch;
@@ -359,6 +393,14 @@
       "| 标题 | 会转换为 Word 可识别的标题样式 |",
       "| 表格 | 会保留边框和单元格结构 |",
       "",
+      "## Mermaid",
+      "",
+      "```mermaid",
+      "flowchart LR",
+      "  A[输入 Markdown] --> B[实时预览]",
+      "  B --> C[复制富文本]",
+      "```",
+      "",
       "```js",
       "console.log('复制为富文本');",
       "```",
@@ -379,6 +421,14 @@
 
     function escapeAttribute(value) {
       return escapeHtml(value).replace(/`/g, "&#96;");
+    }
+
+    function encodeMermaidSource(value) {
+      return encodeURIComponent(String(value));
+    }
+
+    function decodeMermaidSource(value) {
+      return decodeURIComponent(String(value || ""));
     }
 
     function inlineMarkdown(value) {
@@ -447,6 +497,16 @@
       };
     }
 
+    function renderMermaidBlock(source) {
+      const encoded = escapeAttribute(encodeMermaidSource(source));
+      const escapedSource = escapeHtml(source);
+      return [
+        '<div class="mermaid-diagram" data-mermaid="' + encoded + '">',
+        '<pre class="mermaid-source">' + escapedSource + "</pre>",
+        "</div>"
+      ].join("");
+    }
+
     function markdownToHtml(markdown) {
       const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
       const output = [];
@@ -476,7 +536,12 @@
 
         if (inCode) {
           if (/^```/.test(trimmed)) {
-            output.push('<pre><code class="language-' + escapeAttribute(codeLanguage) + '">' + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+            const codeSource = codeLines.join("\n");
+            if (codeLanguage.toLowerCase() === "mermaid") {
+              output.push(renderMermaidBlock(codeSource));
+            } else {
+              output.push('<pre><code class="language-' + escapeAttribute(codeLanguage) + '">' + escapeHtml(codeSource) + "</code></pre>");
+            }
             inCode = false;
             codeLanguage = "";
             codeLines = [];
@@ -564,13 +629,102 @@
       }
 
       if (inCode) {
-        output.push('<pre><code class="language-' + escapeAttribute(codeLanguage) + '">' + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+        const codeSource = codeLines.join("\n");
+        if (codeLanguage.toLowerCase() === "mermaid") {
+          output.push(renderMermaidBlock(codeSource));
+        } else {
+          output.push('<pre><code class="language-' + escapeAttribute(codeLanguage) + '">' + escapeHtml(codeSource) + "</code></pre>");
+        }
       }
 
       flushParagraph();
       closeList();
 
       return output.join("\n");
+    }
+
+    async function renderMermaidDiagrams(container = document) {
+      if (!window.mermaid) {
+        return;
+      }
+
+      const diagrams = Array.from(container.querySelectorAll(".mermaid-diagram[data-mermaid]"));
+      for (const diagram of diagrams) {
+        const source = decodeMermaidSource(diagram.getAttribute("data-mermaid"));
+        const renderKey = source;
+        if (diagram.dataset.rendered === renderKey) {
+          continue;
+        }
+
+        try {
+          const id = "md2doc-mermaid-" + Math.random().toString(36).slice(2);
+          const rendered = await window.mermaid.render(id, source);
+          diagram.innerHTML = rendered.svg;
+          diagram.dataset.rendered = renderKey;
+        } catch (error) {
+          diagram.innerHTML = '<pre class="mermaid-error">Mermaid 渲染失败：' + escapeHtml(error.message || String(error)) + "\n\n" + escapeHtml(source) + "</pre>";
+        }
+      }
+    }
+
+    function serializeSvg(svg) {
+      const clone = svg.cloneNode(true);
+      if (!clone.getAttribute("xmlns")) {
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      }
+      return new XMLSerializer().serializeToString(clone);
+    }
+
+    function svgMarkupToDataUrl(svgMarkup) {
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgMarkup);
+    }
+
+    function svgToPngDataUrl(svg) {
+      return new Promise((resolve, reject) => {
+        const svgMarkup = serializeSvg(svg);
+        const image = new Image();
+        const canvas = document.createElement("canvas");
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.viewBox && svg.viewBox.baseVal;
+        const width = Math.max(1, Math.ceil(rect.width || svg.width.baseVal.value || viewBox.width || 800));
+        const height = Math.max(1, Math.ceil(rect.height || svg.height.baseVal.value || viewBox.height || 400));
+        const scale = 2;
+
+        image.onload = () => {
+          canvas.width = width * scale;
+          canvas.height = height * scale;
+          const context = canvas.getContext("2d");
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/png"));
+        };
+
+        image.onerror = () => reject(new Error("Mermaid 图无法转换为 PNG"));
+        image.src = svgMarkupToDataUrl(svgMarkup);
+      });
+    }
+
+    async function prepareMermaidImagesForCopy(container) {
+      await renderMermaidDiagrams(container);
+      const diagrams = Array.from(container.querySelectorAll(".mermaid-diagram"));
+
+      await Promise.all(diagrams.map(async (diagram) => {
+        if (diagram.dataset.wordImage) {
+          return;
+        }
+
+        const svg = diagram.querySelector("svg");
+        if (!svg) {
+          return;
+        }
+
+        try {
+          diagram.dataset.wordImage = await svgToPngDataUrl(svg);
+        } catch (error) {
+          diagram.dataset.wordImage = svgMarkupToDataUrl(serializeSvg(svg));
+        }
+      }));
     }
 
     const wordStyles = {
@@ -766,6 +920,7 @@
 
     function buildWordHtml(innerHtml) {
       let html = transformCodeBlocksForWord(innerHtml);
+      html = transformMermaidDiagramsForWord(html);
       html = transformBlockquotesForWord(html);
       html = transformSeparatorsForWord(html);
       html = addInlineStyle(html, "h1", wordStyles.h1);
@@ -789,6 +944,39 @@
       return insertWordSpacers(html);
     }
 
+    function createMermaidImageHtml(imageSource) {
+      return [
+        '<p data-md2doc-mermaid-image="true" style="margin: 10pt 0; text-align: center;">',
+        '<img src="' + escapeAttribute(imageSource) + '" alt="Mermaid diagram" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border: 1px solid #d9e2ec;">',
+        "</p>"
+      ].join("");
+    }
+
+    function replaceMermaidDiagramsInClone(clone) {
+      if (!clone.querySelectorAll) {
+        return clone;
+      }
+
+      clone.querySelectorAll(".mermaid-diagram").forEach((diagram) => {
+        let imageSource = diagram.getAttribute("data-word-image") || "";
+        const svg = diagram.querySelector("svg");
+
+        if (!imageSource && svg) {
+          imageSource = svgMarkupToDataUrl(serializeSvg(svg));
+        }
+
+        if (!imageSource) {
+          return;
+        }
+
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = createMermaidImageHtml(imageSource);
+        diagram.replaceWith(wrapper.firstElementChild);
+      });
+
+      return clone;
+    }
+
     function transformCodeBlocksForWord(html) {
       return html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/gi, (_, codeAttrs, codeContent) => {
         return [
@@ -802,6 +990,36 @@
           "</tr></tbody>",
           "</table>"
         ].join("");
+      });
+    }
+
+    function transformMermaidDiagramsForWord(html) {
+      html = html.replace(/<div([^>]*class="[^"]*mermaid-diagram[^"]*"[^>]*)>([\s\S]*?<svg[\s\S]*?<\/svg>)[\s\S]*?<\/div>/gi, (match, attrs, content) => {
+        const imageMatch = attrs.match(/\sdata-word-image="([^"]+)"/i);
+        const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/i);
+        let imageSource = imageMatch ? imageMatch[1] : "";
+
+        if (!imageSource && svgMatch) {
+          imageSource = svgMarkupToDataUrl(svgMatch[0]);
+        }
+
+        return imageSource ? createMermaidImageHtml(imageSource) : match;
+      });
+
+      return html.replace(/<div([^>]*class="[^"]*mermaid-diagram[^"]*"[^>]*)>([\s\S]*?)<\/div>/gi, (match, attrs, content) => {
+        const imageMatch = attrs.match(/\sdata-word-image="([^"]+)"/i);
+        const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/i);
+        let imageSource = imageMatch ? imageMatch[1] : "";
+
+        if (!imageSource && svgMatch) {
+          imageSource = svgMarkupToDataUrl(svgMatch[0]);
+        }
+
+        if (!imageSource) {
+          return match;
+        }
+
+        return createMermaidImageHtml(imageSource);
       });
     }
 
@@ -836,7 +1054,8 @@
     }
 
     function buildClipboardHtml(previewElement) {
-      return '<div style="' + wordStyles.root + '">' + buildWordHtml(previewElement.innerHTML) + "</div>";
+      const clone = previewElement.cloneNode ? replaceMermaidDiagramsInClone(previewElement.cloneNode(true)) : previewElement;
+      return '<div style="' + wordStyles.root + '">' + buildWordHtml(clone.innerHTML) + "</div>";
     }
 
     function copyHtmlBySelection(html) {
@@ -864,6 +1083,7 @@
     async function copyRichText() {
       const preview = document.getElementById("preview");
       const button = document.getElementById("copyButton");
+      await prepareMermaidImagesForCopy(preview);
       const html = buildClipboardHtml(preview);
       const text = preview.innerText;
 
@@ -896,6 +1116,7 @@
       const sourceCount = document.getElementById("sourceCount");
       preview.innerHTML = markdownToHtml(input.value);
       sourceCount.textContent = input.value.length + " 字";
+      renderMermaidDiagrams(preview);
     }
 
     function init() {
@@ -916,13 +1137,28 @@
       escapeHtml,
       inlineMarkdown,
       markdownToHtml,
+      renderMermaidBlock,
+      renderMermaidDiagrams,
+      prepareMermaidImagesForCopy,
       buildWordHtml,
+      createMermaidImageHtml,
+      replaceMermaidDiagramsInClone,
       transformCodeBlocksForWord,
+      transformMermaidDiagramsForWord,
       transformBlockquotesForWord,
       transformSeparatorsForWord,
       insertWordSpacers,
       buildClipboardHtml
     };
+
+    window.md2docRenderMermaid = renderMermaidDiagrams;
+  </script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    window.mermaid = mermaid;
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+    window.md2docRenderMermaid?.(document.getElementById("preview"));
   </script>
 </body>
 </html>
