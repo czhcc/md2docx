@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markdown 富文本复制</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f0f4f8;
+      --border: #d9e2ec;
+      --border-strong: #bcccdc;
+      --text: #1f2933;
+      --muted: #52606d;
+      --brand: #1565c0;
+      --brand-strong: #0d47a1;
+      --success: #137333;
+      --shadow: 0 12px 32px rgba(31, 41, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "微软雅黑", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 0 rgba(31, 41, 51, 0.04);
+    }
+
+    .title {
+      min-width: 0;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .title p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .copy-button {
+      appearance: none;
+      border: 1px solid var(--brand);
+      border-radius: 6px;
+      background: var(--brand);
+      color: #ffffff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 15px;
+      white-space: nowrap;
+      transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+    }
+
+    .copy-button:hover {
+      background: var(--brand-strong);
+      border-color: var(--brand-strong);
+    }
+
+    .copy-button:active {
+      transform: translateY(1px);
+    }
+
+    .copy-button.copied {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .pane {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-soft);
+    }
+
+    .pane-header strong {
+      font-size: 14px;
+    }
+
+    .pane-header span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      resize: none;
+      border: 0;
+      outline: 0;
+      padding: 18px;
+      color: #17202a;
+      background: #fbfdff;
+      font: 15px/1.65 Consolas, "Microsoft YaHei", monospace;
+      tab-size: 2;
+    }
+
+    .preview-shell {
+      min-height: 0;
+      overflow: auto;
+      background: #edf2f7;
+      padding: 22px;
+    }
+
+    .doc-preview {
+      max-width: 860px;
+      min-height: 100%;
+      margin: 0 auto;
+      padding: 42px 52px;
+      background: #ffffff;
+      color: #1f2933;
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 45px rgba(31, 41, 51, 0.12);
+      font-family: "Microsoft YaHei", "微软雅黑", SimSun, serif;
+      font-size: 16px;
+      line-height: 1.75;
+      overflow-wrap: anywhere;
+    }
+
+    .doc-preview h1,
+    .doc-preview h2,
+    .doc-preview h3,
+    .doc-preview h4,
+    .doc-preview h5,
+    .doc-preview h6 {
+      margin: 1.1em 0 0.55em;
+      color: #111827;
+      line-height: 1.28;
+      font-weight: 700;
+    }
+
+    .doc-preview h1 {
+      margin-top: 0;
+      font-size: 28px;
+      border-bottom: 2px solid #d9e2ec;
+      padding-bottom: 8px;
+    }
+
+    .doc-preview h2 {
+      font-size: 23px;
+      border-bottom: 1px solid #e4e7eb;
+      padding-bottom: 5px;
+    }
+
+    .doc-preview h3 {
+      font-size: 19px;
+    }
+
+    .doc-preview h4,
+    .doc-preview h5,
+    .doc-preview h6 {
+      font-size: 16px;
+    }
+
+    .doc-preview p {
+      margin: 0.7em 0;
+    }
+
+    .doc-preview ul,
+    .doc-preview ol {
+      margin: 0.7em 0;
+      padding-left: 1.75em;
+    }
+
+    .doc-preview li {
+      margin: 0.25em 0;
+    }
+
+    .doc-preview blockquote {
+      margin: 1em 0;
+      padding: 0.45em 1em;
+      border-left: 4px solid #1565c0;
+      background: #f3f7fc;
+      color: #334e68;
+    }
+
+    .doc-preview code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #eef2f7;
+      border: 1px solid #d9e2ec;
+      border-radius: 4px;
+      padding: 0.08em 0.3em;
+      font-size: 0.92em;
+    }
+
+    .doc-preview pre {
+      margin: 1em 0;
+      padding: 14px 16px;
+      overflow: auto;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: #f3f4f6;
+      color: #111827;
+      line-height: 1.6;
+    }
+
+    .doc-preview pre code {
+      display: block;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 13px;
+      white-space: pre;
+    }
+
+    .doc-preview table {
+      width: 100%;
+      margin: 1em 0;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 15px;
+    }
+
+    .doc-preview th,
+    .doc-preview td {
+      border: 1px solid #aab7c4;
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .doc-preview th {
+      background: #e8f1fb;
+      font-weight: 700;
+    }
+
+    .doc-preview a {
+      color: #0b63ce;
+    }
+
+    .doc-preview hr {
+      height: 1px;
+      border: 0;
+      margin: 1.4em 0;
+      background: #cbd5e1;
+    }
+
+    @media (max-width: 860px) {
+      .toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .copy-button {
+        width: 100%;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(320px, 45vh) minmax(420px, 1fr);
+      }
+
+      .doc-preview {
+        padding: 30px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <div class="title">
+        <h1>Markdown 富文本复制</h1>
+        <p>左侧粘贴 Markdown，右侧预览，复制后可粘贴进 Word / WPS 文档。</p>
+      </div>
+      <button class="copy-button" id="copyButton" type="button">复制富文本</button>
+    </header>
+
+    <main class="workspace">
+      <section class="pane" aria-label="Markdown 输入">
+        <div class="pane-header">
+          <strong>Markdown 输入</strong>
+          <span id="sourceCount">0 字</span>
+        </div>
+        <textarea id="markdownInput" spellcheck="false"></textarea>
+      </section>
+
+      <section class="pane" aria-label="排版预览">
+        <div class="pane-header">
+          <strong>排版预览</strong>
+          <span>富文本复制目标</span>
+        </div>
+        <div class="preview-shell">
+          <article class="doc-preview" id="preview"></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const defaultMarkdown = [
+      "# 示例标题",
+      "",
+      "这是一段 Markdown 文本，支持 **加粗**、*斜体*、`行内代码` 和 [链接](https://example.com)。",
+      "",
+      "## 列表",
+      "",
+      "- 第一项",
+      "- 第二项",
+      "- 第三项",
+      "",
+      "## 表格",
+      "",
+      "| 字段 | 说明 |",
+      "| --- | --- |",
+      "| 标题 | 会转换为 Word 可识别的标题样式 |",
+      "| 表格 | 会保留边框和单元格结构 |",
+      "",
+      "```js",
+      "console.log('复制为富文本');",
+      "```",
+      "",
+      "> 点击上方按钮后，在 docx 编辑器中直接粘贴。"
+    ].join("\n");
+
+    const WORD_PAGE_BODY_WIDTH = "600px";
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replace(/`/g, "&#96;");
+    }
+
+    function inlineMarkdown(value) {
+      const codeTokens = [];
+      let html = escapeHtml(value);
+
+      html = html.replace(/`([^`]+)`/g, (_, code) => {
+        const token = "\u0000CODE" + codeTokens.length + "\u0000";
+        codeTokens.push("<code>" + code + "</code>");
+        return token;
+      });
+
+      html = html.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, src) => {
+        return '<img src="' + escapeAttribute(src) + '" alt="' + escapeAttribute(alt) + '">';
+      });
+      html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => {
+        return '<a href="' + escapeAttribute(href) + '">' + text + "</a>";
+      });
+      html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+      html = html.replace(/(^|[\s>])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+      html = html.replace(/(^|[\s>])_([^_\n]+)_/g, "$1<em>$2</em>");
+
+      codeTokens.forEach((code, index) => {
+        html = html.replace("\u0000CODE" + index + "\u0000", code);
+      });
+
+      return html;
+    }
+
+    function isTableSeparator(line) {
+      const trimmed = line.trim();
+      if (!trimmed.includes("|")) {
+        return false;
+      }
+      return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed);
+    }
+
+    function splitTableRow(line) {
+      return line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+    }
+
+    function renderTable(lines, startIndex) {
+      const headers = splitTableRow(lines[startIndex]);
+      const rows = [];
+      let index = startIndex + 2;
+
+      while (index < lines.length && lines[index].trim().includes("|") && lines[index].trim() !== "") {
+        rows.push(splitTableRow(lines[index]));
+        index += 1;
+      }
+
+      const thead = "<thead><tr>" + headers.map((cell) => "<th>" + inlineMarkdown(cell) + "</th>").join("") + "</tr></thead>";
+      const tbody = rows.length
+        ? "<tbody>" + rows.map((row) => "<tr>" + headers.map((_, cellIndex) => "<td>" + inlineMarkdown(row[cellIndex] || "") + "</td>").join("") + "</tr>").join("") + "</tbody>"
+        : "";
+
+      return {
+        html: "<table>" + thead + tbody + "</table>",
+        nextIndex: index
+      };
+    }
+
+    function markdownToHtml(markdown) {
+      const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
+      const output = [];
+      let paragraph = [];
+      let listType = "";
+      let inCode = false;
+      let codeLanguage = "";
+      let codeLines = [];
+
+      function flushParagraph() {
+        if (paragraph.length > 0) {
+          output.push("<p>" + inlineMarkdown(paragraph.join(" ")) + "</p>");
+          paragraph = [];
+        }
+      }
+
+      function closeList() {
+        if (listType) {
+          output.push("</" + listType + ">");
+          listType = "";
+        }
+      }
+
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        const trimmed = line.trim();
+
+        if (inCode) {
+          if (/^```/.test(trimmed)) {
+            output.push('<pre><code class="language-' + escapeAttribute(codeLanguage) + '">' + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+            inCode = false;
+            codeLanguage = "";
+            codeLines = [];
+          } else {
+            codeLines.push(line);
+          }
+          continue;
+        }
+
+        const codeStart = trimmed.match(/^```([\w-]*)\s*$/);
+        if (codeStart) {
+          flushParagraph();
+          closeList();
+          inCode = true;
+          codeLanguage = codeStart[1] || "";
+          codeLines = [];
+          continue;
+        }
+
+        if (trimmed === "") {
+          flushParagraph();
+          closeList();
+          continue;
+        }
+
+        if (index + 1 < lines.length && trimmed.includes("|") && isTableSeparator(lines[index + 1])) {
+          flushParagraph();
+          closeList();
+          const table = renderTable(lines, index);
+          output.push(table.html);
+          index = table.nextIndex - 1;
+          continue;
+        }
+
+        const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (heading) {
+          flushParagraph();
+          closeList();
+          const level = heading[1].length;
+          output.push("<h" + level + ">" + inlineMarkdown(heading[2]) + "</h" + level + ">");
+          continue;
+        }
+
+        if (/^ {0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+          flushParagraph();
+          closeList();
+          output.push("<hr>");
+          continue;
+        }
+
+        const unordered = trimmed.match(/^[-*+]\s+(.+)$/);
+        if (unordered) {
+          flushParagraph();
+          if (listType !== "ul") {
+            closeList();
+            output.push("<ul>");
+            listType = "ul";
+          }
+          output.push("<li>" + inlineMarkdown(unordered[1]) + "</li>");
+          continue;
+        }
+
+        const ordered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+        if (ordered) {
+          flushParagraph();
+          if (listType !== "ol") {
+            closeList();
+            output.push("<ol>");
+            listType = "ol";
+          }
+          output.push("<li>" + inlineMarkdown(ordered[1]) + "</li>");
+          continue;
+        }
+
+        const quote = trimmed.match(/^>\s?(.+)$/);
+        if (quote) {
+          flushParagraph();
+          closeList();
+          output.push("<blockquote>" + inlineMarkdown(quote[1]) + "</blockquote>");
+          continue;
+        }
+
+        closeList();
+        paragraph.push(trimmed);
+      }
+
+      if (inCode) {
+        output.push('<pre><code class="language-' + escapeAttribute(codeLanguage) + '">' + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+      }
+
+      flushParagraph();
+      closeList();
+
+      return output.join("\n");
+    }
+
+    const wordStyles = {
+      root: [
+        "font-family: 'Microsoft YaHei', '微软雅黑', SimSun, serif;",
+        "font-size: 12pt;",
+        "line-height: 1.65;",
+        "color: #1f2933;",
+        "width: " + WORD_PAGE_BODY_WIDTH + ";",
+        "max-width: " + WORD_PAGE_BODY_WIDTH + ";"
+      ].join(" "),
+      h1: [
+        "font-family: 'Microsoft YaHei', '微软雅黑', SimSun, serif;",
+        "font-size: 21pt;",
+        "font-weight: 700;",
+        "line-height: 1.3;",
+        "margin: 0 0 12pt 0;",
+        "padding-bottom: 6pt;",
+        "border-bottom: 1.5pt solid #d9e2ec;"
+      ].join(" "),
+      h2: [
+        "font-family: 'Microsoft YaHei', '微软雅黑', SimSun, serif;",
+        "font-size: 17pt;",
+        "font-weight: 700;",
+        "line-height: 1.3;",
+        "margin: 16pt 0 10pt 0;",
+        "padding-bottom: 4pt;",
+        "border-bottom: 1px solid #d9e2ec;"
+      ].join(" "),
+      h3: [
+        "font-family: 'Microsoft YaHei', '微软雅黑', SimSun, serif;",
+        "font-size: 14.5pt;",
+        "font-weight: 700;",
+        "line-height: 1.35;",
+        "margin: 14pt 0 8pt 0;"
+      ].join(" "),
+      paragraph: "margin: 7pt 0; line-height: 1.65;",
+      list: "margin: 7pt 0; padding-left: 22pt;",
+      listItem: "margin: 3pt 0; line-height: 1.65;",
+      table: [
+        "width: 100%;",
+        "max-width: 100%;",
+        "border-collapse: collapse;",
+        "table-layout: fixed;",
+        "margin: 10pt 0;",
+        "font-size: 11pt;",
+        "mso-width-percent: 1000;",
+        "mso-border-alt: solid #aab7c4 .75pt;"
+      ].join(" "),
+      th: [
+        "border: 1px solid #aab7c4;",
+        "mso-border-alt: solid #aab7c4 .75pt;",
+        "background: #e8f1fb;",
+        "font-weight: 700;",
+        "padding: 7pt 8pt;",
+        "text-align: left;",
+        "vertical-align: top;",
+        "overflow-wrap: anywhere;",
+        "word-break: break-word;"
+      ].join(" "),
+      td: [
+        "border: 1px solid #aab7c4;",
+        "mso-border-alt: solid #aab7c4 .75pt;",
+        "padding: 7pt 8pt;",
+        "text-align: left;",
+        "vertical-align: top;",
+        "overflow-wrap: anywhere;",
+        "word-break: break-word;"
+      ].join(" "),
+      blockquote: [
+        "margin: 10pt 0;",
+        "padding: 5pt 10pt;",
+        "border-left: 3pt solid #1565c0;",
+        "background: #f3f7fc;",
+        "color: #334e68;"
+      ].join(" "),
+      pre: [
+        "margin: 10pt 0;",
+        "padding: 10pt 12pt;",
+        "border: 1px solid #ccd6e0;",
+        "background: #111827;",
+        "color: #f8fafc;",
+        "font-family: Consolas, 'Courier New', monospace;",
+        "font-size: 10pt;",
+        "line-height: 1.5;",
+        "white-space: pre-wrap;"
+      ].join(" "),
+      code: [
+        "font-family: Consolas, 'Courier New', monospace;",
+        "background: #eef2f7;",
+        "border: 1px solid #d9e2ec;",
+        "padding: 1pt 3pt;"
+      ].join(" "),
+      link: "color: #0b63ce; text-decoration: underline;",
+      hr: "border: 0; border-top: 1px solid #cbd5e1; height: 1px; margin: 14pt 0;"
+    };
+
+    const codeBlockStyles = {
+      table: [
+        "width: 100%;",
+        "max-width: 100%;",
+        "border-collapse: collapse;",
+        "table-layout: fixed;",
+        "margin: 10pt 0;",
+        "mso-border-alt: solid #d1d5db .75pt;"
+      ].join(" "),
+      td: [
+        "border: 1px solid #d1d5db;",
+        "mso-border-alt: solid #d1d5db .75pt;",
+        "background: #f3f4f6;",
+        "background-color: #f3f4f6;",
+        "mso-shading: #f3f4f6;",
+        "padding: 10pt 12pt;",
+        "vertical-align: top;"
+      ].join(" "),
+      pre: [
+        "margin: 0;",
+        "background: #f3f4f6;",
+        "background-color: #f3f4f6;",
+        "color: #111827;",
+        "font-family: Consolas, 'Courier New', monospace;",
+        "font-size: 10pt;",
+        "line-height: 1.5;",
+        "white-space: pre-wrap;",
+        "overflow-wrap: anywhere;",
+        "word-break: break-word;"
+      ].join(" "),
+      code: [
+        "background: #f3f4f6;",
+        "background-color: #f3f4f6;",
+        "color: #111827;",
+        "font-family: Consolas, 'Courier New', monospace;",
+        "font-size: 10pt;"
+      ].join(" ")
+    };
+
+    const quoteBlockStyles = {
+      table: [
+        "width: 100%;",
+        "max-width: 100%;",
+        "border-collapse: collapse;",
+        "table-layout: fixed;",
+        "margin: 10pt 0;"
+      ].join(" "),
+      td: [
+        "border-left: 3pt solid #1565c0;",
+        "background: #f3f7fc;",
+        "background-color: #f3f7fc;",
+        "mso-shading: #f3f7fc;",
+        "color: #334e68;",
+        "padding: 7pt 10pt;",
+        "vertical-align: top;",
+        "line-height: 1.65;"
+      ].join(" ")
+    };
+
+    const separatorStyles = {
+      table: [
+        "width: 100%;",
+        "max-width: 100%;",
+        "border-collapse: collapse;",
+        "table-layout: fixed;",
+        "margin: 12pt 0;"
+      ].join(" "),
+      td: [
+        "border-top: 1px solid #cbd5e1;",
+        "font-size: 1pt;",
+        "line-height: 1pt;",
+        "padding: 0;"
+      ].join(" ")
+    };
+
+    const wordSpacerHtml = [
+      '<table data-md2doc-spacer="true" style="width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0;">',
+      '<tbody><tr style="height: 14pt; mso-height-rule: exactly;">',
+      '<td style="height: 14pt; mso-height-rule: exactly; border: none; padding: 0; font-size: 1pt; line-height: 1pt;">&nbsp;</td>',
+      "</tr></tbody>",
+      "</table>"
+    ].join("");
+
+    function addInlineStyle(html, tagName, style) {
+      const pattern = new RegExp("<" + tagName + "(\\s[^>]*)?>", "gi");
+      return html.replace(pattern, (match, attrs = "") => {
+        if (/style\s*=/i.test(attrs)) {
+          return match.replace(/style=(["'])(.*?)\1/i, (_, quote, existing) => {
+            return 'style=' + quote + style + " " + existing + quote;
+          });
+        }
+
+        return "<" + tagName + ' style="' + style + '"' + attrs + ">";
+      });
+    }
+
+    function buildWordHtml(innerHtml) {
+      let html = transformCodeBlocksForWord(innerHtml);
+      html = transformBlockquotesForWord(html);
+      html = transformSeparatorsForWord(html);
+      html = addInlineStyle(html, "h1", wordStyles.h1);
+      html = addInlineStyle(html, "h2", wordStyles.h2);
+      html = addInlineStyle(html, "h3", wordStyles.h3);
+      html = addInlineStyle(html, "h4", wordStyles.h3);
+      html = addInlineStyle(html, "h5", wordStyles.h3);
+      html = addInlineStyle(html, "h6", wordStyles.h3);
+      html = addInlineStyle(html, "p", wordStyles.paragraph);
+      html = addInlineStyle(html, "ul", wordStyles.list);
+      html = addInlineStyle(html, "ol", wordStyles.list);
+      html = addInlineStyle(html, "li", wordStyles.listItem);
+      html = addInlineStyle(html, "table", wordStyles.table);
+      html = addInlineStyle(html, "th", wordStyles.th);
+      html = addInlineStyle(html, "td", wordStyles.td);
+      html = addInlineStyle(html, "blockquote", wordStyles.blockquote);
+      html = addInlineStyle(html, "pre", wordStyles.pre);
+      html = addInlineStyle(html, "code", wordStyles.code);
+      html = addInlineStyle(html, "a", wordStyles.link);
+      html = addInlineStyle(html, "hr", wordStyles.hr);
+      return insertWordSpacers(html);
+    }
+
+    function transformCodeBlocksForWord(html) {
+      return html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/gi, (_, codeAttrs, codeContent) => {
+        return [
+          '<table data-md2doc-code-block="true" style="' + codeBlockStyles.table + '">',
+          "<tbody><tr>",
+          '<td bgcolor="#f3f4f6" style="' + codeBlockStyles.td + '">',
+          '<pre style="' + codeBlockStyles.pre + '">',
+          '<code style="' + codeBlockStyles.code + '"' + codeAttrs + ">" + codeContent + "</code>",
+          "</pre>",
+          "</td>",
+          "</tr></tbody>",
+          "</table>"
+        ].join("");
+      });
+    }
+
+    function transformBlockquotesForWord(html) {
+      return html.replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (_, quoteContent) => {
+        return [
+          '<table data-md2doc-quote="true" style="' + quoteBlockStyles.table + '">',
+          "<tbody><tr>",
+          '<td bgcolor="#f3f7fc" style="' + quoteBlockStyles.td + '">',
+          quoteContent,
+          "</td>",
+          "</tr></tbody>",
+          "</table>"
+        ].join("");
+      });
+    }
+
+    function transformSeparatorsForWord(html) {
+      return html.replace(/<hr\s*\/?>/gi, () => {
+        return [
+          '<table data-md2doc-separator="true" style="' + separatorStyles.table + '">',
+          "<tbody><tr>",
+          '<td style="' + separatorStyles.td + '">&nbsp;</td>',
+          "</tr></tbody>",
+          "</table>"
+        ].join("");
+      });
+    }
+
+    function insertWordSpacers(html) {
+      return html.replace(/(<\/(?:h[1-6]|p|ul|ol|table)>)(?=<)/gi, "$1" + wordSpacerHtml);
+    }
+
+    function buildClipboardHtml(previewElement) {
+      return '<div style="' + wordStyles.root + '">' + buildWordHtml(previewElement.innerHTML) + "</div>";
+    }
+
+    function copyHtmlBySelection(html) {
+      const container = document.createElement("div");
+      const selection = window.getSelection();
+      const range = document.createRange();
+
+      container.setAttribute("contenteditable", "true");
+      container.style.position = "fixed";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      container.style.width = WORD_PAGE_BODY_WIDTH;
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      range.selectNodeContents(container);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const copied = document.execCommand("copy");
+      selection.removeAllRanges();
+      document.body.removeChild(container);
+      return copied;
+    }
+
+    async function copyRichText() {
+      const preview = document.getElementById("preview");
+      const button = document.getElementById("copyButton");
+      const html = buildClipboardHtml(preview);
+      const text = preview.innerText;
+
+      try {
+        if (!copyHtmlBySelection(html) && navigator.clipboard && window.ClipboardItem) {
+          const item = new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" })
+          });
+          await navigator.clipboard.write([item]);
+        }
+
+        button.textContent = "已复制";
+        button.classList.add("copied");
+        window.setTimeout(() => {
+          button.textContent = "复制富文本";
+          button.classList.remove("copied");
+        }, 1400);
+      } catch (error) {
+        button.textContent = "复制失败，请手动选择预览区";
+        window.setTimeout(() => {
+          button.textContent = "复制富文本";
+        }, 2200);
+      }
+    }
+
+    function renderMarkdown() {
+      const input = document.getElementById("markdownInput");
+      const preview = document.getElementById("preview");
+      const sourceCount = document.getElementById("sourceCount");
+      preview.innerHTML = markdownToHtml(input.value);
+      sourceCount.textContent = input.value.length + " 字";
+    }
+
+    function init() {
+      const input = document.getElementById("markdownInput");
+      const copyButton = document.getElementById("copyButton");
+
+      input.value = defaultMarkdown;
+      input.addEventListener("input", renderMarkdown);
+      copyButton.addEventListener("click", copyRichText);
+      renderMarkdown();
+    }
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("DOMContentLoaded", init);
+    }
+
+    window.md2doc = {
+      escapeHtml,
+      inlineMarkdown,
+      markdownToHtml,
+      buildWordHtml,
+      transformCodeBlocksForWord,
+      transformBlockquotesForWord,
+      transformSeparatorsForWord,
+      insertWordSpacers,
+      buildClipboardHtml
+    };
+  </script>
+</body>
+</html>
