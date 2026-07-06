@@ -78,6 +78,14 @@ test("page exposes rich clipboard html copy support", () => {
   assert.match(html, /copyRichText/);
 });
 
+test("page exposes a floating back-to-top button when copy button scrolls away", () => {
+  assert.match(html, /id="backToTopButton"/);
+  assert.match(html, /class="back-to-top"/);
+  assert.match(html, /updateBackToTopVisibility/);
+  assert.match(html, /IntersectionObserver/);
+  assert.match(html, /scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+});
+
 test("clipboard html carries Word-friendly inline table styling", () => {
   const preview = {
     innerHTML: [

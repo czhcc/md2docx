@@ -94,6 +94,40 @@
       border-color: var(--success);
     }
 
+    .back-to-top {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 30;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 104px;
+      min-height: 42px;
+      border: 1px solid var(--brand);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--brand);
+      box-shadow: 0 10px 28px rgba(31, 41, 51, 0.18);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.16s ease, transform 0.16s ease, background 0.16s ease;
+    }
+
+    .back-to-top:hover {
+      background: #e8f1fb;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
     .workspace {
       min-height: 0;
       display: grid;
@@ -373,6 +407,7 @@
       </section>
     </main>
   </div>
+  <button class="back-to-top" id="backToTopButton" type="button" aria-hidden="true">跳到顶部</button>
 
   <script>
     const defaultMarkdown = [
@@ -1110,6 +1145,47 @@
       }
     }
 
+    function updateBackToTopVisibility(copyButtonIsVisible) {
+      const backToTopButton = document.getElementById("backToTopButton");
+      if (!backToTopButton) {
+        return;
+      }
+
+      const shouldShow = !copyButtonIsVisible;
+      backToTopButton.classList.toggle("visible", shouldShow);
+      backToTopButton.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+    }
+
+    function setupBackToTopButton() {
+      const copyButton = document.getElementById("copyButton");
+      const backToTopButton = document.getElementById("backToTopButton");
+      if (!copyButton || !backToTopButton) {
+        return;
+      }
+
+      backToTopButton.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          updateBackToTopVisibility(entry.isIntersecting);
+        }, { threshold: 0 });
+
+        observer.observe(copyButton);
+      } else {
+        const updateFromScroll = () => {
+          const rect = copyButton.getBoundingClientRect();
+          updateBackToTopVisibility(rect.bottom > 0 && rect.top < window.innerHeight);
+        };
+
+        window.addEventListener("scroll", updateFromScroll, { passive: true });
+        window.addEventListener("resize", updateFromScroll);
+        updateFromScroll();
+      }
+    }
+
     function renderMarkdown() {
       const input = document.getElementById("markdownInput");
       const preview = document.getElementById("preview");
@@ -1126,6 +1202,7 @@
       input.value = defaultMarkdown;
       input.addEventListener("input", renderMarkdown);
       copyButton.addEventListener("click", copyRichText);
+      setupBackToTopButton();
       renderMarkdown();
     }
 
@@ -1148,6 +1225,8 @@
       transformBlockquotesForWord,
       transformSeparatorsForWord,
       insertWordSpacers,
+      updateBackToTopVisibility,
+      setupBackToTopButton,
       buildClipboardHtml
     };
 
