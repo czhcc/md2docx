@@ -78,6 +78,21 @@ test("page exposes rich clipboard html copy support", () => {
   assert.match(html, /copyRichText/);
 });
 
+test("default markdown includes a local image copy sample", () => {
+  assert.match(html, /!\[本地图片复制测试\]\(images\.png\)/);
+});
+
+test("clipboard html constrains regular images to the Word page width", () => {
+  const preview = {
+    innerHTML: '<p><img src="images.png" alt="本地图片复制测试"></p>',
+  };
+
+  const clipboardHtml = buildClipboardHtml(preview);
+
+  assert.match(clipboardHtml, /<img style="[^"]*max-width: 100%[^"]*" src="images\.png"/);
+  assert.match(clipboardHtml, /height: auto/);
+});
+
 test("page exposes a floating back-to-top button when copy button scrolls away", () => {
   assert.match(html, /id="backToTopButton"/);
   assert.match(html, /class="back-to-top"/);

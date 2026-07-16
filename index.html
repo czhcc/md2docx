@@ -316,6 +316,13 @@
       color: #0b63ce;
     }
 
+    .doc-preview img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 1em auto;
+    }
+
     .doc-preview hr {
       height: 1px;
       border: 0;
@@ -428,6 +435,10 @@
       "| --- | --- |",
       "| 标题 | 会转换为 Word 可识别的标题样式 |",
       "| 表格 | 会保留边框和单元格结构 |",
+      "",
+      "## 图片",
+      "",
+      "![本地图片复制测试](images.png)",
       "",
       "## Mermaid",
       "",
@@ -862,6 +873,7 @@
         "padding: 1pt 3pt;"
       ].join(" "),
       link: "color: #0b63ce; text-decoration: underline;",
+      image: "display: block; max-width: 100%; height: auto; margin: 10pt auto;",
       hr: "border: 0; border-top: 1px solid #cbd5e1; height: 1px; margin: 14pt 0;"
     };
 
@@ -983,6 +995,7 @@
       html = addInlineStyle(html, "pre", wordStyles.pre);
       html = addInlineStyle(html, "code", wordStyles.code);
       html = addInlineStyle(html, "a", wordStyles.link);
+      html = addInlineStyle(html, "img", wordStyles.image);
       html = addInlineStyle(html, "hr", wordStyles.hr);
       html = transformTablesForWord(html);
       return insertWordSpacers(html);
