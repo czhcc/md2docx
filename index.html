@@ -445,6 +445,7 @@
     ].join("\n");
 
     const WORD_PAGE_BODY_WIDTH = "600px";
+    const WORD_TABLE_WIDTH = "100%";
 
     function escapeHtml(value) {
       return String(value)
@@ -769,8 +770,9 @@
         "font-size: 12pt;",
         "line-height: 1.65;",
         "color: #1f2933;",
-        "width: " + WORD_PAGE_BODY_WIDTH + ";",
-        "max-width: " + WORD_PAGE_BODY_WIDTH + ";"
+        "width: 100%;",
+        "max-width: 100%;",
+        "mso-width-percent: 1000;"
       ].join(" "),
       h1: [
         "font-family: 'Microsoft YaHei', '微软雅黑', SimSun, serif;",
@@ -805,6 +807,9 @@
         "max-width: 100%;",
         "border-collapse: collapse;",
         "table-layout: fixed;",
+        "mso-table-layout-alt: fixed;",
+        "mso-table-lspace: 0pt;",
+        "mso-table-rspace: 0pt;",
         "margin: 10pt 0;",
         "font-size: 11pt;",
         "mso-width-percent: 1000;",
@@ -819,7 +824,8 @@
         "text-align: left;",
         "vertical-align: top;",
         "overflow-wrap: anywhere;",
-        "word-break: break-word;"
+        "word-break: break-word;",
+        "word-break: break-all;"
       ].join(" "),
       td: [
         "border: 1px solid #aab7c4;",
@@ -828,7 +834,8 @@
         "text-align: left;",
         "vertical-align: top;",
         "overflow-wrap: anywhere;",
-        "word-break: break-word;"
+        "word-break: break-word;",
+        "word-break: break-all;"
       ].join(" "),
       blockquote: [
         "margin: 10pt 0;",
@@ -977,7 +984,65 @@
       html = addInlineStyle(html, "code", wordStyles.code);
       html = addInlineStyle(html, "a", wordStyles.link);
       html = addInlineStyle(html, "hr", wordStyles.hr);
+      html = transformTablesForWord(html);
       return insertWordSpacers(html);
+    }
+
+    function getFirstRowColumnCount(tableContent) {
+      const firstRow = tableContent.match(/<tr[\s\S]*?<\/tr>/i)?.[0] || "";
+      const cells = firstRow.match(/<(?:th|td)\b/gi) || [];
+      return Math.max(1, cells.length);
+    }
+
+    function formatColumnPercent(columnCount) {
+      const percent = 100 / columnCount;
+      return Number.isInteger(percent) ? String(percent) : percent.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+    }
+
+    function buildWordColgroup(columnCount) {
+      const width = formatColumnPercent(columnCount);
+      return "<colgroup>" + Array.from({ length: columnCount }, () => '<col style="width: ' + width + '%;">').join("") + "</colgroup>";
+    }
+
+    function addWordSoftBreaksToText(text) {
+      return text
+        .replace(/([_\/\\.-])/g, "$1&#8203;")
+        .replace(/([a-z])([A-Z])/g, "$1&#8203;$2");
+    }
+
+    function addSoftBreaksToTableCells(content) {
+      return content.replace(/(<(?:th|td)\b[^>]*>)([\s\S]*?)(<\/(?:th|td)>)/gi, (match, open, cellContent, close) => {
+        const nextCellContent = cellContent.replace(/(^|>)([^<]+)(?=<|$)/g, (part, prefix, text) => {
+          return prefix + addWordSoftBreaksToText(text);
+        });
+        return open + nextCellContent + close;
+      });
+    }
+
+    function transformTablesForWord(html) {
+      return html.replace(/<table\b([^>]*)>([\s\S]*?)<\/table>/gi, (match, attrs, content) => {
+        let nextAttrs = attrs;
+        if (!/\swidth=/i.test(nextAttrs)) {
+          nextAttrs += ' width="' + WORD_TABLE_WIDTH + '"';
+        }
+
+        if (/style=(["'])(.*?)\1/i.test(nextAttrs)) {
+          nextAttrs = nextAttrs.replace(/style=(["'])(.*?)\1/i, (_, quote, existing) => {
+            const widthStyle = "width: 100%; max-width: 100%; table-layout: fixed; mso-table-layout-alt: fixed; mso-width-percent: 1000; ";
+            return "style=" + quote + widthStyle + existing + quote;
+          });
+        } else {
+          nextAttrs += ' style="width: 100%; max-width: 100%; table-layout: fixed; mso-table-layout-alt: fixed; mso-width-percent: 1000;"';
+        }
+
+        const shouldAddSoftBreaks = !/\sdata-md2doc-code-block=/i.test(nextAttrs);
+        const contentWithSoftBreaks = shouldAddSoftBreaks ? addSoftBreaksToTableCells(content) : content;
+        const nextContent = /^\s*<colgroup\b/i.test(contentWithSoftBreaks)
+          ? contentWithSoftBreaks
+          : buildWordColgroup(getFirstRowColumnCount(contentWithSoftBreaks)) + contentWithSoftBreaks;
+
+        return "<table" + nextAttrs + ">" + nextContent + "</table>";
+      });
     }
 
     function createMermaidImageHtml(imageSource) {
@@ -1223,6 +1288,7 @@
       replaceMermaidDiagramsInClone,
       transformCodeBlocksForWord,
       transformMermaidDiagramsForWord,
+      transformTablesForWord,
       transformBlockquotesForWord,
       transformSeparatorsForWord,
       insertWordSpacers,

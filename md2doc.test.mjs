@@ -113,12 +113,80 @@ test("clipboard output constrains tables to a Word page body width", () => {
 
   const clipboardHtml = buildClipboardHtml(preview);
 
-  assert.match(clipboardHtml, /max-width: 600px/);
-  assert.match(clipboardHtml, /<table style="[^"]*max-width: 100%/);
+  assert.match(clipboardHtml, /<div style="[^"]*width: 100%/);
+  assert.match(clipboardHtml, /<div style="[^"]*max-width: 100%/);
+  assert.match(clipboardHtml, /<table[^>]+width="100%"/);
+  assert.match(clipboardHtml, /<table style="[^"]*width: 100%/);
+  assert.match(clipboardHtml, /mso-width-percent: 1000/);
   assert.match(clipboardHtml, /<td style="[^"]*overflow-wrap: anywhere/);
+  assert.doesNotMatch(clipboardHtml, /<table[^>]+width="600"/);
+  assert.doesNotMatch(clipboardHtml, /<div style="[^"]*width: 600px/);
   assert.match(html, /container\.style\.width = WORD_PAGE_BODY_WIDTH/);
   assert.doesNotMatch(html, /container\.style\.width = "800px"/);
 });
+
+test("clipboard html fixes multi-column tables to the Word page width", () => {
+  const preview = {
+    innerHTML: [
+      "<table>",
+      "<thead><tr>",
+      "<th>主题</th><th>标签</th><th>范围</th><th>说明</th><th>备注</th>",
+      "</tr></thead>",
+      "<tbody><tr>",
+      "<td>现有主题整理后的标签</td>",
+      "<td>特别长的标签内容会自动换行不会撑出页面</td>",
+      "<td>范围</td><td>说明</td><td>备注</td>",
+      "</tr></tbody>",
+      "</table>",
+    ].join(""),
+  };
+
+  const clipboardHtml = buildClipboardHtml(preview);
+
+  assert.match(clipboardHtml, /<table[^>]+width="100%"/);
+  assert.match(clipboardHtml, /table-layout: fixed/);
+  assert.match(clipboardHtml, /width: 100%/);
+  assert.match(clipboardHtml, /mso-width-percent: 1000/);
+  assert.match(clipboardHtml, /mso-table-layout-alt: fixed/);
+  assert.match(clipboardHtml, /<colgroup><col style="width: 20%;">/);
+  assert.match(clipboardHtml, /word-break: break-all/);
+  assert.doesNotMatch(clipboardHtml, /<table[^>]*style="[^"]*width: 600px/);
+});
+
+test("clipboard html adds soft break points to long table field names", () => {
+  const preview = {
+    innerHTML: [
+      "<table>",
+      "<thead><tr>",
+      "<th>sort</th>",
+      "<th>label_code</th>",
+      "<th>标签名称</th>",
+      "<th>label_group</th>",
+      "<th>label_type</th>",
+      "<th>resource_scope</th>",
+      "</tr></thead>",
+      "<tbody><tr>",
+      "<td>100</td>",
+      "<td>ACTIVE_THEME</td>",
+      "<td>现有主题整理后的标签</td>",
+      "<td>NATIONAL_SOVEREIGNTY</td>",
+      "<td>topic_label</td>",
+      "<td>video_frame/text_resource</td>",
+      "</tr></tbody>",
+      "</table>",
+    ].join(""),
+  };
+
+  const clipboardHtml = buildClipboardHtml(preview);
+
+  assert.match(clipboardHtml, /<table[^>]+width="100%"/);
+  assert.match(clipboardHtml, /<colgroup><col style="width: 16\.6667%;">/);
+  assert.match(clipboardHtml, /label_&#8203;code/);
+  assert.match(clipboardHtml, /resource_&#8203;scope/);
+  assert.match(clipboardHtml, /video_&#8203;frame\/&#8203;text_&#8203;resource/);
+  assert.doesNotMatch(clipboardHtml, /<table[^>]*style="[^"]*width: 600px/);
+});
+
 
 test("clipboard html wraps fenced code in a light gray Word-friendly table cell", () => {
   const preview = {
