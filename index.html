@@ -135,6 +135,11 @@
       grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
       gap: 16px;
       padding: 16px;
+      transition: grid-template-columns 0.24s ease;
+    }
+
+    .workspace.source-collapsed {
+      grid-template-columns: 44px minmax(320px, 1fr);
     }
 
     .pane {
@@ -166,6 +171,82 @@
     .pane-header span {
       color: var(--muted);
       font-size: 12px;
+    }
+
+    .pane-header-content {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      opacity: 1;
+      transition: opacity 0.16s ease;
+    }
+
+    .drawer-toggle {
+      appearance: none;
+      flex: 0 0 30px;
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .drawer-toggle::before {
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      content: "";
+      transform: rotate(135deg);
+      transition: transform 0.24s ease;
+    }
+
+    .drawer-toggle:hover {
+      border-color: var(--brand);
+      background: #e8f1fb;
+      color: var(--brand);
+    }
+
+    .drawer-toggle:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .source-pane textarea {
+      opacity: 1;
+      transition: opacity 0.14s ease;
+    }
+
+    .workspace.source-collapsed .source-pane .pane-header {
+      gap: 0;
+      justify-content: center;
+      padding: 8px 6px;
+    }
+
+    .workspace.source-collapsed .source-pane .pane-header-content {
+      flex: 0 0 0;
+      width: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .workspace.source-collapsed .drawer-toggle::before {
+      transform: rotate(-45deg);
+    }
+
+    .workspace.source-collapsed .source-pane textarea {
+      opacity: 0;
+      pointer-events: none;
     }
 
     textarea {
@@ -346,6 +427,15 @@
       margin: 0 auto;
     }
 
+    .doc-preview .mermaid-diagram.is-interactive {
+      cursor: zoom-in;
+    }
+
+    .doc-preview .mermaid-diagram.is-interactive:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 3px;
+    }
+
     .doc-preview .mermaid-source,
     .doc-preview .mermaid-error {
       margin: 0;
@@ -364,6 +454,146 @@
       color: #842029;
     }
 
+    body.mermaid-modal-open {
+      overflow: hidden;
+    }
+
+    .mermaid-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(17, 24, 39, 0.72);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.18s ease, visibility 0.18s ease;
+    }
+
+    .mermaid-modal.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .mermaid-modal-panel {
+      width: min(1320px, 100%);
+      height: min(900px, calc(100vh - 48px));
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+      transform: translateY(8px);
+      transition: transform 0.18s ease;
+    }
+
+    .mermaid-modal.open .mermaid-modal-panel {
+      transform: translateY(0);
+    }
+
+    .mermaid-modal-toolbar {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 9px 12px 9px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-soft);
+    }
+
+    .mermaid-modal-toolbar strong {
+      min-width: 0;
+      font-size: 14px;
+    }
+
+    .mermaid-modal-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mermaid-modal-control {
+      appearance: none;
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--text);
+      cursor: pointer;
+      font: 700 18px/1 "Microsoft YaHei", "微软雅黑", sans-serif;
+    }
+
+    .mermaid-modal-control:hover {
+      border-color: var(--brand);
+      background: #e8f1fb;
+      color: var(--brand);
+    }
+
+    .mermaid-modal-control:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .mermaid-modal-control.original-size {
+      width: 42px;
+      font-size: 12px;
+    }
+
+    .mermaid-modal-control.close {
+      margin-left: 6px;
+      font-size: 22px;
+    }
+
+    .mermaid-modal-zoom-label {
+      width: 52px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mermaid-modal-viewport {
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      background: #edf2f7;
+      cursor: grab;
+      overscroll-behavior: contain;
+      user-select: none;
+    }
+
+    .mermaid-modal-viewport.dragging {
+      cursor: grabbing;
+    }
+
+    .mermaid-modal-canvas {
+      min-width: 100%;
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+    }
+
+    .mermaid-modal-canvas svg {
+      flex: none;
+      display: block;
+      max-width: none;
+      margin: 0;
+      background: #ffffff;
+    }
+
     @media (max-width: 860px) {
       .toolbar {
         align-items: stretch;
@@ -379,8 +609,41 @@
         grid-template-rows: minmax(320px, 45vh) minmax(420px, 1fr);
       }
 
+      .workspace.source-collapsed {
+        grid-template-columns: 1fr;
+        grid-template-rows: 48px minmax(420px, 1fr);
+      }
+
       .doc-preview {
         padding: 30px 24px;
+      }
+
+      .mermaid-modal {
+        padding: 10px;
+      }
+
+      .mermaid-modal-panel {
+        height: calc(100vh - 20px);
+      }
+
+      .mermaid-modal-toolbar {
+        gap: 8px;
+        padding-left: 12px;
+      }
+
+      .mermaid-modal-canvas {
+        padding: 20px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .workspace,
+      .pane-header-content,
+      .drawer-toggle::before,
+      .source-pane textarea,
+      .mermaid-modal,
+      .mermaid-modal-panel {
+        transition: none;
       }
     }
   </style>
@@ -395,11 +658,14 @@
       <button class="copy-button" id="copyButton" type="button">复制富文本</button>
     </header>
 
-    <main class="workspace">
-      <section class="pane" aria-label="Markdown 输入">
+    <main class="workspace" id="workspace">
+      <section class="pane source-pane" id="sourcePane" aria-label="Markdown 输入">
         <div class="pane-header">
-          <strong>Markdown 输入</strong>
-          <span id="sourceCount">0 字</span>
+          <div class="pane-header-content">
+            <strong>Markdown 输入</strong>
+            <span id="sourceCount">0 字</span>
+          </div>
+          <button class="drawer-toggle" id="sourceDrawerToggle" type="button" aria-controls="sourcePane" aria-expanded="true" aria-label="收起 Markdown 输入" title="收起 Markdown 输入"></button>
         </div>
         <textarea id="markdownInput" spellcheck="false"></textarea>
       </section>
@@ -416,6 +682,23 @@
     </main>
   </div>
   <button class="back-to-top" id="backToTopButton" type="button" aria-hidden="true">跳到顶部</button>
+  <div class="mermaid-modal" id="mermaidModal" role="dialog" aria-modal="true" aria-labelledby="mermaidModalTitle" aria-hidden="true">
+    <div class="mermaid-modal-panel">
+      <div class="mermaid-modal-toolbar">
+        <strong id="mermaidModalTitle">Mermaid 大图</strong>
+        <div class="mermaid-modal-actions">
+          <button class="mermaid-modal-control" id="mermaidZoomOut" type="button" aria-label="缩小" title="缩小">−</button>
+          <span class="mermaid-modal-zoom-label" id="mermaidZoomLabel">175%</span>
+          <button class="mermaid-modal-control" id="mermaidZoomIn" type="button" aria-label="放大" title="放大">+</button>
+          <button class="mermaid-modal-control original-size" id="mermaidZoomOriginal" type="button" aria-label="恢复原始尺寸" title="恢复原始尺寸">1:1</button>
+          <button class="mermaid-modal-control close" id="mermaidModalClose" type="button" aria-label="关闭大图" title="关闭">×</button>
+        </div>
+      </div>
+      <div class="mermaid-modal-viewport" id="mermaidModalViewport">
+        <div class="mermaid-modal-canvas" id="mermaidModalCanvas"></div>
+      </div>
+    </div>
+  </div>
 
   <script>
     const defaultMarkdown = [
@@ -457,6 +740,21 @@
 
     const WORD_PAGE_BODY_WIDTH = "600px";
     const WORD_TABLE_WIDTH = "100%";
+    const MERMAID_MODAL_DEFAULT_SCALE = 1.75;
+    const MERMAID_MODAL_MIN_SCALE = 0.5;
+    const MERMAID_MODAL_MAX_SCALE = 4;
+    const mermaidModalState = {
+      scale: MERMAID_MODAL_DEFAULT_SCALE,
+      baseWidth: 0,
+      baseHeight: 0,
+      svg: null,
+      previousFocus: null,
+      dragging: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      dragScrollLeft: 0,
+      dragScrollTop: 0
+    };
 
     function escapeHtml(value) {
       return String(value)
@@ -709,8 +1007,16 @@
           const rendered = await window.mermaid.render(id, source);
           diagram.innerHTML = rendered.svg;
           diagram.dataset.rendered = renderKey;
+          diagram.classList.add("is-interactive");
+          diagram.setAttribute("role", "button");
+          diagram.setAttribute("tabindex", "0");
+          diagram.setAttribute("aria-label", "点击查看 Mermaid 大图");
         } catch (error) {
           diagram.innerHTML = '<pre class="mermaid-error">Mermaid 渲染失败：' + escapeHtml(error.message || String(error)) + "\n\n" + escapeHtml(source) + "</pre>";
+          diagram.classList.remove("is-interactive");
+          diagram.removeAttribute("role");
+          diagram.removeAttribute("tabindex");
+          diagram.removeAttribute("aria-label");
         }
       }
     }
@@ -1265,6 +1571,213 @@
       }
     }
 
+    function getMermaidSvgSize(svg) {
+      const viewBox = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+      const rect = svg.getBoundingClientRect();
+      const viewBoxWidth = viewBox.length === 4 && Number.isFinite(viewBox[2]) ? viewBox[2] : 0;
+      const viewBoxHeight = viewBox.length === 4 && Number.isFinite(viewBox[3]) ? viewBox[3] : 0;
+      const attributeWidth = Number.parseFloat(svg.getAttribute("width")) || 0;
+      const attributeHeight = Number.parseFloat(svg.getAttribute("height")) || 0;
+
+      return {
+        width: Math.max(1, viewBoxWidth || attributeWidth || rect.width || 800),
+        height: Math.max(1, viewBoxHeight || attributeHeight || rect.height || 400)
+      };
+    }
+
+    function setMermaidModalZoom(nextScale, keepCenter = true) {
+      const viewport = document.getElementById("mermaidModalViewport");
+      const canvas = document.getElementById("mermaidModalCanvas");
+      const zoomLabel = document.getElementById("mermaidZoomLabel");
+      if (!viewport || !canvas || !zoomLabel || !mermaidModalState.svg) {
+        return;
+      }
+
+      const oldScale = mermaidModalState.scale || 1;
+      const centerX = viewport.scrollLeft + viewport.clientWidth / 2;
+      const centerY = viewport.scrollTop + viewport.clientHeight / 2;
+      const scale = Math.min(MERMAID_MODAL_MAX_SCALE, Math.max(MERMAID_MODAL_MIN_SCALE, nextScale));
+      const scaledWidth = Math.round(mermaidModalState.baseWidth * scale);
+      const scaledHeight = Math.round(mermaidModalState.baseHeight * scale);
+
+      mermaidModalState.scale = scale;
+      mermaidModalState.svg.style.setProperty("width", scaledWidth + "px", "important");
+      mermaidModalState.svg.style.setProperty("height", scaledHeight + "px", "important");
+      mermaidModalState.svg.style.setProperty("max-width", "none", "important");
+      canvas.style.width = scaledWidth + 64 + "px";
+      canvas.style.height = scaledHeight + 64 + "px";
+      zoomLabel.textContent = Math.round(scale * 100) + "%";
+
+      if (keepCenter) {
+        const ratio = scale / oldScale;
+        requestAnimationFrame(() => {
+          viewport.scrollLeft = centerX * ratio - viewport.clientWidth / 2;
+          viewport.scrollTop = centerY * ratio - viewport.clientHeight / 2;
+        });
+      }
+    }
+
+    function openMermaidModal(diagram) {
+      const sourceSvg = diagram && diagram.querySelector ? diagram.querySelector("svg") : null;
+      const modal = document.getElementById("mermaidModal");
+      const viewport = document.getElementById("mermaidModalViewport");
+      const canvas = document.getElementById("mermaidModalCanvas");
+      const closeButton = document.getElementById("mermaidModalClose");
+      if (!sourceSvg || !modal || !viewport || !canvas || !closeButton) {
+        return;
+      }
+
+      const size = getMermaidSvgSize(sourceSvg);
+      const svg = sourceSvg.cloneNode(true);
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+      svg.style.setProperty("max-width", "none", "important");
+      svg.setAttribute("aria-hidden", "true");
+      canvas.replaceChildren(svg);
+
+      mermaidModalState.baseWidth = size.width;
+      mermaidModalState.baseHeight = size.height;
+      mermaidModalState.svg = svg;
+      mermaidModalState.scale = 1;
+      mermaidModalState.previousFocus = document.activeElement;
+
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("mermaid-modal-open");
+      const app = document.querySelector(".app");
+      if (app) {
+        app.inert = true;
+      }
+
+      setMermaidModalZoom(MERMAID_MODAL_DEFAULT_SCALE, false);
+      requestAnimationFrame(() => {
+        viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2);
+        viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2);
+        closeButton.focus();
+      });
+    }
+
+    function closeMermaidModal() {
+      const modal = document.getElementById("mermaidModal");
+      const canvas = document.getElementById("mermaidModalCanvas");
+      if (!modal || modal.getAttribute("aria-hidden") === "true") {
+        return;
+      }
+
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("mermaid-modal-open");
+      const app = document.querySelector(".app");
+      if (app) {
+        app.inert = false;
+      }
+
+      if (canvas) {
+        canvas.replaceChildren();
+        canvas.style.width = "";
+        canvas.style.height = "";
+      }
+      mermaidModalState.svg = null;
+      if (mermaidModalState.previousFocus && mermaidModalState.previousFocus.focus) {
+        mermaidModalState.previousFocus.focus();
+      }
+      mermaidModalState.previousFocus = null;
+    }
+
+    function setupMermaidModal() {
+      const preview = document.getElementById("preview");
+      const modal = document.getElementById("mermaidModal");
+      const viewport = document.getElementById("mermaidModalViewport");
+      const zoomIn = document.getElementById("mermaidZoomIn");
+      const zoomOut = document.getElementById("mermaidZoomOut");
+      const originalSize = document.getElementById("mermaidZoomOriginal");
+      const closeButton = document.getElementById("mermaidModalClose");
+      if (!preview || !modal || !viewport || !zoomIn || !zoomOut || !originalSize || !closeButton) {
+        return;
+      }
+
+      const openFromEvent = (event) => {
+        const diagram = event.target.closest && event.target.closest(".mermaid-diagram.is-interactive");
+        if (diagram) {
+          openMermaidModal(diagram);
+        }
+      };
+
+      preview.addEventListener("click", openFromEvent);
+      preview.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          const diagram = event.target.closest && event.target.closest(".mermaid-diagram.is-interactive");
+          if (diagram) {
+            event.preventDefault();
+            openMermaidModal(diagram);
+          }
+        }
+      });
+
+      zoomIn.addEventListener("click", () => setMermaidModalZoom(mermaidModalState.scale + 0.25));
+      zoomOut.addEventListener("click", () => setMermaidModalZoom(mermaidModalState.scale - 0.25));
+      originalSize.addEventListener("click", () => setMermaidModalZoom(1));
+      closeButton.addEventListener("click", closeMermaidModal);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) {
+          closeMermaidModal();
+        }
+      });
+
+      viewport.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const direction = event.deltaY < 0 ? 0.15 : -0.15;
+        setMermaidModalZoom(mermaidModalState.scale + direction);
+      }, { passive: false });
+
+      viewport.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+          return;
+        }
+        mermaidModalState.dragging = true;
+        mermaidModalState.dragStartX = event.clientX;
+        mermaidModalState.dragStartY = event.clientY;
+        mermaidModalState.dragScrollLeft = viewport.scrollLeft;
+        mermaidModalState.dragScrollTop = viewport.scrollTop;
+        viewport.classList.add("dragging");
+        viewport.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      });
+
+      viewport.addEventListener("pointermove", (event) => {
+        if (!mermaidModalState.dragging) {
+          return;
+        }
+        viewport.scrollLeft = mermaidModalState.dragScrollLeft - (event.clientX - mermaidModalState.dragStartX);
+        viewport.scrollTop = mermaidModalState.dragScrollTop - (event.clientY - mermaidModalState.dragStartY);
+      });
+
+      const stopDragging = (event) => {
+        mermaidModalState.dragging = false;
+        viewport.classList.remove("dragging");
+        if (event && viewport.hasPointerCapture?.(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      };
+      viewport.addEventListener("pointerup", stopDragging);
+      viewport.addEventListener("pointercancel", stopDragging);
+
+      document.addEventListener("keydown", (event) => {
+        if (modal.getAttribute("aria-hidden") === "true") {
+          return;
+        }
+        if (event.key === "Escape") {
+          closeMermaidModal();
+        } else if (event.key === "+" || event.key === "=") {
+          setMermaidModalZoom(mermaidModalState.scale + 0.25);
+        } else if (event.key === "-") {
+          setMermaidModalZoom(mermaidModalState.scale - 0.25);
+        } else if (event.key === "0") {
+          setMermaidModalZoom(1);
+        }
+      });
+    }
+
     function renderMarkdown() {
       const input = document.getElementById("markdownInput");
       const preview = document.getElementById("preview");
@@ -1274,6 +1787,40 @@
       renderMermaidDiagrams(preview);
     }
 
+    function setSourceDrawerCollapsed(collapsed) {
+      const workspace = document.getElementById("workspace");
+      const input = document.getElementById("markdownInput");
+      const toggleButton = document.getElementById("sourceDrawerToggle");
+      if (!workspace || !input || !toggleButton) {
+        return;
+      }
+
+      const isCollapsed = Boolean(collapsed);
+      const buttonLabel = isCollapsed ? "展开 Markdown 输入" : "收起 Markdown 输入";
+      workspace.classList.toggle("source-collapsed", isCollapsed);
+      toggleButton.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+      toggleButton.setAttribute("aria-label", buttonLabel);
+      toggleButton.title = buttonLabel;
+      input.tabIndex = isCollapsed ? -1 : 0;
+      input.setAttribute("aria-hidden", isCollapsed ? "true" : "false");
+
+      if (isCollapsed && document.activeElement === input) {
+        toggleButton.focus();
+      }
+    }
+
+    function setupSourceDrawer() {
+      const workspace = document.getElementById("workspace");
+      const toggleButton = document.getElementById("sourceDrawerToggle");
+      if (!workspace || !toggleButton) {
+        return;
+      }
+
+      toggleButton.addEventListener("click", () => {
+        setSourceDrawerCollapsed(!workspace.classList.contains("source-collapsed"));
+      });
+    }
+
     function init() {
       const input = document.getElementById("markdownInput");
       const copyButton = document.getElementById("copyButton");
@@ -1281,6 +1828,8 @@
       input.value = defaultMarkdown;
       input.addEventListener("input", renderMarkdown);
       copyButton.addEventListener("click", copyRichText);
+      setupSourceDrawer();
+      setupMermaidModal();
       setupBackToTopButton();
       renderMarkdown();
     }
@@ -1305,6 +1854,13 @@
       transformBlockquotesForWord,
       transformSeparatorsForWord,
       insertWordSpacers,
+      getMermaidSvgSize,
+      setMermaidModalZoom,
+      openMermaidModal,
+      closeMermaidModal,
+      setupMermaidModal,
+      setSourceDrawerCollapsed,
+      setupSourceDrawer,
       updateBackToTopVisibility,
       setupBackToTopButton,
       buildClipboardHtml
@@ -1316,7 +1872,15 @@
     import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 
     window.mermaid = mermaid;
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "default",
+      themeVariables: {
+        fontFamily: "Microsoft YaHei, 微软雅黑, sans-serif",
+        fontSize: "17px"
+      }
+    });
     window.md2docRenderMermaid?.(document.getElementById("preview"));
   </script>
 </body>

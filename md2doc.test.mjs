@@ -64,7 +64,7 @@ test("renders mermaid code fences as diagram placeholders", () => {
 
 test("page loads Mermaid and exposes a render hook", () => {
   assert.match(html, /mermaid@11\/dist\/mermaid\.esm\.min\.mjs/);
-  assert.match(html, /mermaid\.initialize\(\{ startOnLoad: false/);
+  assert.match(html, /mermaid\.initialize\(\{[\s\S]*?startOnLoad: false/);
   assert.match(html, /renderMermaidDiagrams/);
   assert.match(html, /window\.md2docRenderMermaid/);
   assert.match(html, /prepareMermaidImagesForCopy/);
@@ -99,6 +99,32 @@ test("page exposes a floating back-to-top button when copy button scrolls away",
   assert.match(html, /updateBackToTopVisibility/);
   assert.match(html, /IntersectionObserver/);
   assert.match(html, /scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+});
+
+test("page exposes a collapsible Markdown input drawer", () => {
+  assert.match(html, /id="workspace"/);
+  assert.match(html, /id="sourcePane"/);
+  assert.match(html, /id="sourceDrawerToggle"/);
+  assert.match(html, /aria-controls="sourcePane"/);
+  assert.match(html, /grid-template-columns: 44px minmax\(320px, 1fr\)/);
+  assert.match(html, /classList\.toggle\("source-collapsed", isCollapsed\)/);
+  assert.match(html, /setSourceDrawerCollapsed/);
+  assert.match(html, /setupSourceDrawer/);
+});
+
+test("page exposes an interactive Mermaid zoom modal", () => {
+  assert.match(html, /id="mermaidModal"/);
+  assert.match(html, /role="dialog"/);
+  assert.match(html, /id="mermaidModalViewport"/);
+  assert.match(html, /MERMAID_MODAL_DEFAULT_SCALE = 1\.75/);
+  assert.match(html, /openMermaidModal/);
+  assert.match(html, /closeMermaidModal/);
+  assert.match(html, /setMermaidModalZoom/);
+  assert.match(html, /addEventListener\("wheel"/);
+  assert.match(html, /addEventListener\("pointermove"/);
+  assert.match(html, /event\.key === "Escape"/);
+  assert.match(html, /fontSize: "17px"/);
+  assert.match(html, /setProperty\("max-width", "none", "important"\)/);
 });
 
 test("clipboard html carries Word-friendly inline table styling", () => {
