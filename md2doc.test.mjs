@@ -127,6 +127,20 @@ test("page exposes an interactive Mermaid zoom modal", () => {
   assert.match(html, /setProperty\("max-width", "none", "important"\)/);
 });
 
+test("page exposes a floating h1 and h2 preview table of contents", () => {
+  assert.match(html, /id="previewShell"/);
+  assert.match(html, /id="previewToc"/);
+  assert.match(html, /id="previewTocList"/);
+  assert.match(html, /position: fixed/);
+  assert.match(html, /right: 24px/);
+  assert.match(html, /querySelectorAll\("h1, h2"\)/);
+  assert.match(html, /heading\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+  assert.match(html, /updatePreviewTocPosition/);
+  assert.match(html, /window\.addEventListener\("scroll", scheduleActiveUpdate/);
+  assert.match(html, /buildPreviewToc/);
+  assert.match(html, /setupPreviewToc/);
+});
+
 test("clipboard html carries Word-friendly inline table styling", () => {
   const preview = {
     innerHTML: [

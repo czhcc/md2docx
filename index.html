@@ -264,10 +264,85 @@
     }
 
     .preview-shell {
+      position: relative;
       min-height: 0;
       overflow: auto;
       background: #edf2f7;
       padding: 22px;
+    }
+
+    .preview-toc {
+      position: fixed;
+      top: 16px;
+      right: 24px;
+      z-index: 25;
+      width: min(220px, calc(100% - 24px));
+      max-height: min(62vh, 520px);
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: 0 12px 30px rgba(31, 41, 51, 0.16);
+    }
+
+    .preview-toc-title {
+      display: block;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-soft);
+      font-size: 13px;
+    }
+
+    .preview-toc-list {
+      max-height: calc(min(62vh, 520px) - 39px);
+      margin: 0;
+      padding: 6px;
+      overflow: auto;
+      list-style: none;
+    }
+
+    .preview-toc-item {
+      margin: 0;
+    }
+
+    .preview-toc-link {
+      appearance: none;
+      width: 100%;
+      display: block;
+      overflow: hidden;
+      border: 0;
+      border-left: 3px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: 12px/1.45 "Microsoft YaHei", "微软雅黑", sans-serif;
+      letter-spacing: 0;
+      padding: 7px 8px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-toc-link.level-2 {
+      padding-left: 22px;
+    }
+
+    .preview-toc-link:hover {
+      background: #edf5ff;
+      color: var(--brand);
+    }
+
+    .preview-toc-link.active {
+      border-left-color: var(--brand);
+      background: #e8f1fb;
+      color: var(--brand-strong);
+      font-weight: 700;
+    }
+
+    .preview-toc-link:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: -2px;
     }
 
     .doc-preview {
@@ -318,6 +393,11 @@
     .doc-preview h5,
     .doc-preview h6 {
       font-size: 16px;
+    }
+
+    .doc-preview h1,
+    .doc-preview h2 {
+      scroll-margin-top: 18px;
     }
 
     .doc-preview p {
@@ -634,6 +714,11 @@
       .mermaid-modal-canvas {
         padding: 20px;
       }
+
+      .preview-toc {
+        right: 10px;
+        width: min(190px, calc(100% - 16px));
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -675,12 +760,16 @@
           <strong>排版预览</strong>
           <span>富文本复制目标</span>
         </div>
-        <div class="preview-shell">
+        <div class="preview-shell" id="previewShell">
           <article class="doc-preview" id="preview"></article>
         </div>
       </section>
     </main>
   </div>
+  <nav class="preview-toc" id="previewToc" aria-label="文档目录" hidden>
+    <strong class="preview-toc-title">文档目录</strong>
+    <ol class="preview-toc-list" id="previewTocList"></ol>
+  </nav>
   <button class="back-to-top" id="backToTopButton" type="button" aria-hidden="true">跳到顶部</button>
   <div class="mermaid-modal" id="mermaidModal" role="dialog" aria-modal="true" aria-labelledby="mermaidModalTitle" aria-hidden="true">
     <div class="mermaid-modal-panel">
@@ -1778,12 +1867,127 @@
       });
     }
 
+    function updatePreviewTocActive() {
+      const preview = document.getElementById("preview");
+      const previewShell = document.getElementById("previewShell");
+      const tocList = document.getElementById("previewTocList");
+      if (!preview || !previewShell || !tocList) {
+        return;
+      }
+
+      const headings = Array.from(preview.querySelectorAll("h1, h2"));
+      if (!headings.length) {
+        return;
+      }
+
+      const shellTop = previewShell.getBoundingClientRect().top;
+      let activeHeading = headings[0];
+      for (const heading of headings) {
+        if (heading.getBoundingClientRect().top <= shellTop + 72) {
+          activeHeading = heading;
+        } else {
+          break;
+        }
+      }
+
+      tocList.querySelectorAll(".preview-toc-link").forEach((link) => {
+        const isActive = link.dataset.tocTarget === activeHeading.id;
+        link.classList.toggle("active", isActive);
+        if (isActive) {
+          link.setAttribute("aria-current", "location");
+        } else {
+          link.removeAttribute("aria-current");
+        }
+      });
+    }
+
+    function updatePreviewTocPosition() {
+      const toc = document.getElementById("previewToc");
+      const toolbar = document.querySelector(".toolbar");
+      if (!toc || toc.hidden) {
+        return;
+      }
+
+      const toolbarBottom = toolbar ? toolbar.getBoundingClientRect().bottom : 0;
+      toc.style.top = Math.max(16, toolbarBottom + 12) + "px";
+    }
+
+    function buildPreviewToc() {
+      const preview = document.getElementById("preview");
+      const toc = document.getElementById("previewToc");
+      const tocList = document.getElementById("previewTocList");
+      if (!preview || !toc || !tocList) {
+        return;
+      }
+
+      const headings = Array.from(preview.querySelectorAll("h1, h2"));
+      tocList.replaceChildren();
+      toc.hidden = headings.length === 0;
+
+      headings.forEach((heading, index) => {
+        const headingId = "md2doc-heading-" + index;
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        heading.id = headingId;
+        item.className = "preview-toc-item";
+        button.type = "button";
+        button.className = "preview-toc-link level-" + heading.tagName.slice(1);
+        button.dataset.tocTarget = headingId;
+        button.textContent = heading.textContent.trim() || "未命名标题";
+        button.title = button.textContent;
+        item.appendChild(button);
+        tocList.appendChild(item);
+      });
+
+      updatePreviewTocActive();
+      updatePreviewTocPosition();
+    }
+
+    function setupPreviewToc() {
+      const previewShell = document.getElementById("previewShell");
+      const tocList = document.getElementById("previewTocList");
+      if (!previewShell || !tocList) {
+        return;
+      }
+
+      let updateFrame = 0;
+      const scheduleActiveUpdate = () => {
+        if (updateFrame) {
+          return;
+        }
+        updateFrame = requestAnimationFrame(() => {
+          updateFrame = 0;
+          updatePreviewTocActive();
+          updatePreviewTocPosition();
+        });
+      };
+
+      tocList.addEventListener("click", (event) => {
+        const button = event.target.closest && event.target.closest(".preview-toc-link");
+        if (!button) {
+          return;
+        }
+        const heading = document.getElementById(button.dataset.tocTarget);
+        if (heading) {
+          heading.scrollIntoView({ behavior: "smooth", block: "start" });
+          tocList.querySelectorAll(".preview-toc-link").forEach((link) => {
+            link.classList.toggle("active", link === button);
+          });
+        }
+      });
+
+      previewShell.addEventListener("scroll", scheduleActiveUpdate, { passive: true });
+      window.addEventListener("scroll", scheduleActiveUpdate, { passive: true });
+      window.addEventListener("resize", scheduleActiveUpdate);
+    }
+
     function renderMarkdown() {
       const input = document.getElementById("markdownInput");
       const preview = document.getElementById("preview");
       const sourceCount = document.getElementById("sourceCount");
       preview.innerHTML = markdownToHtml(input.value);
       sourceCount.textContent = input.value.length + " 字";
+      buildPreviewToc();
       renderMermaidDiagrams(preview);
     }
 
@@ -1830,6 +2034,7 @@
       copyButton.addEventListener("click", copyRichText);
       setupSourceDrawer();
       setupMermaidModal();
+      setupPreviewToc();
       setupBackToTopButton();
       renderMarkdown();
     }
@@ -1859,6 +2064,10 @@
       openMermaidModal,
       closeMermaidModal,
       setupMermaidModal,
+      updatePreviewTocActive,
+      updatePreviewTocPosition,
+      buildPreviewToc,
+      setupPreviewToc,
       setSourceDrawerCollapsed,
       setupSourceDrawer,
       updateBackToTopVisibility,
