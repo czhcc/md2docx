@@ -184,6 +184,48 @@
       transition: opacity 0.16s ease;
     }
 
+    .source-header-actions {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .file-open-button {
+      appearance: none;
+      min-width: 72px;
+      height: 28px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--brand-strong);
+      cursor: pointer;
+      font: 700 12px/1 "Microsoft YaHei", "微软雅黑", sans-serif;
+      letter-spacing: 0;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+
+    .file-open-button:hover {
+      border-color: var(--brand);
+      background: #e8f1fb;
+    }
+
+    .file-open-button:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .file-open-button.loaded {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .file-open-button.failed {
+      border-color: #b42318;
+      color: #b42318;
+    }
+
     .drawer-toggle {
       appearance: none;
       flex: 0 0 30px;
@@ -748,10 +790,14 @@
         <div class="pane-header">
           <div class="pane-header-content">
             <strong>Markdown 输入</strong>
-            <span id="sourceCount">0 字</span>
+            <div class="source-header-actions">
+              <span id="sourceCount">0 字</span>
+              <button class="file-open-button" id="openMarkdownButton" type="button">打开文件</button>
+            </div>
           </div>
           <button class="drawer-toggle" id="sourceDrawerToggle" type="button" aria-controls="sourcePane" aria-expanded="true" aria-label="收起 Markdown 输入" title="收起 Markdown 输入"></button>
         </div>
+        <input id="markdownFileInput" type="file" accept=".md,.markdown,text/markdown,text/plain" hidden>
         <textarea id="markdownInput" spellcheck="false"></textarea>
       </section>
 
@@ -1991,6 +2037,56 @@
       renderMermaidDiagrams(preview);
     }
 
+    async function loadMarkdownFile(file) {
+      const input = document.getElementById("markdownInput");
+      const openButton = document.getElementById("openMarkdownButton");
+      if (!file || !input || !openButton) {
+        return false;
+      }
+
+      try {
+        const content = (await file.text()).replace(/^\uFEFF/, "");
+        input.value = content;
+        renderMarkdown();
+        input.focus();
+        input.setSelectionRange(0, 0);
+        openButton.textContent = "已打开";
+        openButton.classList.add("loaded");
+        openButton.title = file.name;
+        window.setTimeout(() => {
+          openButton.textContent = "打开文件";
+          openButton.classList.remove("loaded");
+        }, 1400);
+        return true;
+      } catch (error) {
+        openButton.textContent = "读取失败";
+        openButton.classList.add("failed");
+        window.setTimeout(() => {
+          openButton.textContent = "打开文件";
+          openButton.classList.remove("failed");
+        }, 1800);
+        return false;
+      }
+    }
+
+    function setupMarkdownFileOpen() {
+      const openButton = document.getElementById("openMarkdownButton");
+      const fileInput = document.getElementById("markdownFileInput");
+      if (!openButton || !fileInput) {
+        return;
+      }
+
+      openButton.addEventListener("click", () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files && fileInput.files[0];
+        await loadMarkdownFile(file);
+        fileInput.value = "";
+      });
+    }
+
     function setSourceDrawerCollapsed(collapsed) {
       const workspace = document.getElementById("workspace");
       const input = document.getElementById("markdownInput");
@@ -2032,6 +2128,7 @@
       input.value = defaultMarkdown;
       input.addEventListener("input", renderMarkdown);
       copyButton.addEventListener("click", copyRichText);
+      setupMarkdownFileOpen();
       setupSourceDrawer();
       setupMermaidModal();
       setupPreviewToc();
@@ -2068,6 +2165,8 @@
       updatePreviewTocPosition,
       buildPreviewToc,
       setupPreviewToc,
+      loadMarkdownFile,
+      setupMarkdownFileOpen,
       setSourceDrawerCollapsed,
       setupSourceDrawer,
       updateBackToTopVisibility,

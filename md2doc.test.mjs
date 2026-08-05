@@ -112,6 +112,16 @@ test("page exposes a collapsible Markdown input drawer", () => {
   assert.match(html, /setupSourceDrawer/);
 });
 
+test("page can open a local Markdown file into the input", () => {
+  assert.match(html, /id="openMarkdownButton"/);
+  assert.match(html, /id="markdownFileInput"/);
+  assert.match(html, /accept="\.md,\.markdown,text\/markdown,text\/plain"/);
+  assert.match(html, /await file\.text\(\)/);
+  assert.match(html, /input\.value = content/);
+  assert.match(html, /setupMarkdownFileOpen/);
+  assert.match(html, /fileInput\.value = ""/);
+});
+
 test("page exposes an interactive Mermaid zoom modal", () => {
   assert.match(html, /id="mermaidModal"/);
   assert.match(html, /role="dialog"/);
