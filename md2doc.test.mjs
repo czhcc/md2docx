@@ -62,13 +62,22 @@ test("renders mermaid code fences as diagram placeholders", () => {
   assert.doesNotMatch(rendered, /language-mermaid/);
 });
 
-test("page loads Mermaid and exposes a render hook", () => {
-  assert.match(html, /mermaid@11\/dist\/mermaid\.esm\.min\.mjs/);
+test("page embeds Mermaid for offline use and exposes a render hook", () => {
+  assert.match(html, /id="mermaidOfflineRuntime"/);
+  assert.match(html, /globalThis\["mermaid"\]/);
+  assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/npm\/mermaid/);
+  assert.doesNotMatch(html, /import mermaid from/);
   assert.match(html, /mermaid\.initialize\(\{[\s\S]*?startOnLoad: false/);
   assert.match(html, /renderMermaidDiagrams/);
   assert.match(html, /window\.md2docRenderMermaid/);
   assert.match(html, /prepareMermaidImagesForCopy/);
   assert.match(html, /toDataURL\("image\/png"\)/);
+});
+
+test("page has no external executable or stylesheet dependencies", () => {
+  assert.doesNotMatch(html, /<script[^>]+src=["']https?:\/\//i);
+  assert.doesNotMatch(html, /<link[^>]+href=["']https?:\/\//i);
+  assert.doesNotMatch(html, /import\s+[\s\S]*?from\s+["']https?:\/\//i);
 });
 
 test("page exposes rich clipboard html copy support", () => {
