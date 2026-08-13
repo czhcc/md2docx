@@ -1913,6 +1913,40 @@
       });
     }
 
+    const previewTocState = {
+      lockedTargetId: "",
+      unlockTimer: 0
+    };
+
+    function setPreviewTocActive(targetId, keepVisible = true) {
+      const tocList = document.getElementById("previewTocList");
+      if (!tocList || !targetId) {
+        return;
+      }
+
+      let activeLink = null;
+      tocList.querySelectorAll(".preview-toc-link").forEach((link) => {
+        const isActive = link.dataset.tocTarget === targetId;
+        link.classList.toggle("active", isActive);
+        if (isActive) {
+          link.setAttribute("aria-current", "location");
+          activeLink = link;
+        } else {
+          link.removeAttribute("aria-current");
+        }
+      });
+
+      if (activeLink && keepVisible) {
+        const listRect = tocList.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+        if (linkRect.top < listRect.top) {
+          tocList.scrollTop -= listRect.top - linkRect.top + 6;
+        } else if (linkRect.bottom > listRect.bottom) {
+          tocList.scrollTop += linkRect.bottom - listRect.bottom + 6;
+        }
+      }
+    }
+
     function updatePreviewTocActive() {
       const preview = document.getElementById("preview");
       const previewShell = document.getElementById("previewShell");
@@ -1926,25 +1960,36 @@
         return;
       }
 
-      const shellTop = previewShell.getBoundingClientRect().top;
+      if (previewTocState.lockedTargetId) {
+        const lockedHeading = document.getElementById(previewTocState.lockedTargetId);
+        if (lockedHeading) {
+          setPreviewTocActive(previewTocState.lockedTargetId);
+          return;
+        }
+        previewTocState.lockedTargetId = "";
+      }
+
+      const shellRect = previewShell.getBoundingClientRect();
+      const activationLine = Math.max(0, shellRect.top) + 72;
       let activeHeading = headings[0];
-      for (const heading of headings) {
-        if (heading.getBoundingClientRect().top <= shellTop + 72) {
-          activeHeading = heading;
-        } else {
-          break;
+      const shellCanScroll = previewShell.scrollHeight > previewShell.clientHeight + 1;
+      const shellIsAtBottom = shellCanScroll && previewShell.scrollTop + previewShell.clientHeight >= previewShell.scrollHeight - 4;
+      const documentElement = document.documentElement;
+      const pageIsAtBottom = !shellCanScroll && window.scrollY + window.innerHeight >= documentElement.scrollHeight - 4;
+      const isAtBottom = shellIsAtBottom || pageIsAtBottom;
+      if (isAtBottom) {
+        activeHeading = headings[headings.length - 1];
+      } else {
+        for (const heading of headings) {
+          if (heading.getBoundingClientRect().top <= activationLine) {
+            activeHeading = heading;
+          } else {
+            break;
+          }
         }
       }
 
-      tocList.querySelectorAll(".preview-toc-link").forEach((link) => {
-        const isActive = link.dataset.tocTarget === activeHeading.id;
-        link.classList.toggle("active", isActive);
-        if (isActive) {
-          link.setAttribute("aria-current", "location");
-        } else {
-          link.removeAttribute("aria-current");
-        }
-      });
+      setPreviewTocActive(activeHeading.id);
     }
 
     function updatePreviewTocPosition() {
@@ -1967,6 +2012,8 @@
       }
 
       const headings = Array.from(preview.querySelectorAll("h1, h2"));
+      previewTocState.lockedTargetId = "";
+      window.clearTimeout(previewTocState.unlockTimer);
       tocList.replaceChildren();
       toc.hidden = headings.length === 0;
 
@@ -1997,7 +2044,19 @@
       }
 
       let updateFrame = 0;
+      const scheduleTocUnlock = () => {
+        if (!previewTocState.lockedTargetId) {
+          return;
+        }
+        window.clearTimeout(previewTocState.unlockTimer);
+        previewTocState.unlockTimer = window.setTimeout(() => {
+          previewTocState.lockedTargetId = "";
+          updatePreviewTocActive();
+        }, 180);
+      };
+
       const scheduleActiveUpdate = () => {
+        scheduleTocUnlock();
         if (updateFrame) {
           return;
         }
@@ -2015,10 +2074,14 @@
         }
         const heading = document.getElementById(button.dataset.tocTarget);
         if (heading) {
+          previewTocState.lockedTargetId = button.dataset.tocTarget;
+          setPreviewTocActive(previewTocState.lockedTargetId);
+          window.clearTimeout(previewTocState.unlockTimer);
+          previewTocState.unlockTimer = window.setTimeout(() => {
+            previewTocState.lockedTargetId = "";
+            updatePreviewTocActive();
+          }, 1200);
           heading.scrollIntoView({ behavior: "smooth", block: "start" });
-          tocList.querySelectorAll(".preview-toc-link").forEach((link) => {
-            link.classList.toggle("active", link === button);
-          });
         }
       });
 
@@ -2161,6 +2224,7 @@
       openMermaidModal,
       closeMermaidModal,
       setupMermaidModal,
+      setPreviewTocActive,
       updatePreviewTocActive,
       updatePreviewTocPosition,
       buildPreviewToc,

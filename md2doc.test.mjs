@@ -154,6 +154,13 @@ test("page exposes a floating h1 and h2 preview table of contents", () => {
   assert.match(html, /right: 24px/);
   assert.match(html, /querySelectorAll\("h1, h2"\)/);
   assert.match(html, /heading\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+  assert.match(html, /previewTocState\.lockedTargetId = button\.dataset\.tocTarget/);
+  assert.match(html, /setPreviewTocActive\(previewTocState\.lockedTargetId\)/);
+  assert.match(html, /previewShell\.scrollHeight > previewShell\.clientHeight \+ 1/);
+  assert.match(html, /shellCanScroll && previewShell\.scrollTop \+ previewShell\.clientHeight/);
+  assert.match(html, /!shellCanScroll && window\.scrollY \+ window\.innerHeight/);
+  assert.match(html, /Math\.max\(0, shellRect\.top\) \+ 72/);
+  assert.match(html, /setTimeout\(\(\) => \{[\s\S]*?updatePreviewTocActive\(\);[\s\S]*?\}, 180\)/);
   assert.match(html, /updatePreviewTocPosition/);
   assert.match(html, /window\.addEventListener\("scroll", scheduleActiveUpdate/);
   assert.match(html, /buildPreviewToc/);
