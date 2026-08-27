@@ -5,14 +5,18 @@ import vm from "node:vm";
 
 const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
 const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+const katexScript = html.match(/<script id="katexOfflineRuntime">([\s\S]*?)<\/script>/)?.[1];
 
 assert.ok(script, "index.html should contain an inline script");
+assert.ok(katexScript, "index.html should contain the offline KaTeX runtime");
 
-const sandbox = { window: {} };
+const sandbox = { window: {}, Blob, DataView, TextEncoder, Uint8Array };
 vm.createContext(sandbox);
 vm.runInContext(script, sandbox);
+vm.runInContext(katexScript, sandbox);
+sandbox.window.katex = sandbox.katex;
 
-const { buildClipboardHtml, markdownToHtml } = sandbox.window.md2doc;
+const { buildClipboardHtml, buildDocxBlob, createStoredZip, markdownToHtml, mathMlNodeToOmml } = sandbox.window.md2doc;
 
 test("renders common markdown blocks for rich docx paste", () => {
   const source = [
@@ -62,6 +66,194 @@ test("renders mermaid code fences as diagram placeholders", () => {
   assert.doesNotMatch(rendered, /language-mermaid/);
 });
 
+test("renders inline and display math placeholders", () => {
+  const source = [
+    "行内公式：$E = mc^2$",
+    "",
+    "\\[",
+    "P(X=k)=\\binom{n}{k}p^k(1-p)^{n-k}",
+    "\\]",
+  ].join("\n");
+
+  const rendered = markdownToHtml(source);
+
+  assert.match(rendered, /class="math-expression math-inline/);
+  assert.match(rendered, /class="math-expression math-display/);
+  assert.match(rendered, /data-display="false"/);
+  assert.match(rendered, /data-display="true"/);
+  assert.match(rendered, /<math/);
+  assert.match(rendered, /<msup>/);
+  assert.match(rendered, /<mfrac/);
+});
+
+test("accepts copied display math with bare square bracket delimiters", () => {
+  const rendered = markdownToHtml([
+    "[",
+    "10\\binom92",
+    "]",
+  ].join("\n"));
+
+  assert.match(rendered, /class="math-expression math-display/);
+  assert.match(rendered, /data-display="true"/);
+  assert.match(rendered, /<mfrac/);
+  assert.doesNotMatch(rendered, /<p>\[<\/p>/);
+});
+
+test("renders boxed Chinese text with a visible border", () => {
+  const rendered = markdownToHtml([
+    "[",
+    "\\boxed{\\text{古典概率的前提是基本结果等可能}}",
+    "]",
+  ].join("\n"));
+
+  assert.match(rendered, /<menclose[^>]*notation="box"/);
+  assert.match(rendered, /<menclose[^>]*style="[^"]*border:1px solid currentColor/);
+  assert.match(rendered, /古典概率的前提是基本结果等可能/);
+});
+
+test("treats an unescaped percent sign as a literal percentage in formulas", () => {
+  const rendered = markdownToHtml([
+    "[",
+    "\\boxed{50.7%}",
+    "]",
+  ].join("\n"));
+  const encodedLatex = rendered.match(/data-latex="([^"]+)"/)?.[1] || "";
+
+  assert.match(rendered, /<menclose[^>]*notation="box"/);
+  assert.match(rendered, /<menclose[^>]*style="[^"]*display:inline-block/);
+  assert.doesNotMatch(rendered, /math-error/);
+  assert.equal(decodeURIComponent(encodedLatex), "\\boxed{50.7\\%}");
+
+  const alreadyEscaped = markdownToHtml("$50.7\\%$");
+  const escapedLatex = alreadyEscaped.match(/data-latex="([^"]+)"/)?.[1] || "";
+  assert.equal(decodeURIComponent(escapedLatex), "50.7\\%");
+});
+
+test("normalizes copied multi-line equation chains", () => {
+  const first = markdownToHtml([
+    "[",
+    "P(\\text{都是女性})",
+    "==============",
+    "",
+    "# \\frac{10}{45}",
+    "",
+    "\\frac29",
+    "]",
+  ].join("\n"));
+  const firstLatex = decodeURIComponent(first.match(/data-latex="([^"]+)"/)?.[1] || "");
+
+  assert.equal(firstLatex, "P(\\text{都是女性}) = \\frac{10}{45} = \\frac29");
+  assert.doesNotMatch(first, /math-error/);
+  assert.match(first, /都是女性/);
+
+  const second = markdownToHtml([
+    "[",
+    "\\binom21\\binom82",
+    "================",
+    "",
+    "# 2\\times28",
+    "",
+    "56",
+    "]",
+  ].join("\n"));
+  const secondLatex = decodeURIComponent(second.match(/data-latex="([^"]+)"/)?.[1] || "");
+
+  assert.equal(secondLatex, "\\binom21\\binom82 = 2\\times28 = 56");
+  assert.doesNotMatch(second, /math-error/);
+  assert.match(second, /<mfrac/g);
+});
+
+test("does not treat regular Markdown links as display math", () => {
+  const rendered = markdownToHtml("[打开项目](https://github.com/czhcc/md2docx)");
+
+  assert.match(rendered, /<a href=/);
+  assert.doesNotMatch(rendered, /math-display/);
+});
+
+test("converts MathML structures to editable OMML", () => {
+  const element = (localName, children = [], textContent = "", attributes = {}) => ({
+    nodeType: 1,
+    localName,
+    children,
+    childNodes: children,
+    textContent,
+    getAttribute(name) {
+      return attributes[name] || "";
+    },
+  });
+  const numerator = element("mi", [], "n");
+  const denominator = element("mn", [], "2");
+  const fraction = element("mfrac", [numerator, denominator]);
+  const power = element("msup", [element("mi", [], "x"), element("mn", [], "2")]);
+  const boxed = element("menclose", [element("mtext", [], "结论")], "结论", { notation: "box" });
+  const math = element("math", [fraction, power, boxed]);
+
+  const omml = mathMlNodeToOmml(math);
+
+  assert.match(omml, /<m:f>/);
+  assert.match(omml, /<m:num>/);
+  assert.match(omml, /<m:den>/);
+  assert.match(omml, /<m:sSup>/);
+  assert.match(omml, /<m:t[^>]*>x<\/m:t>/);
+  assert.match(omml, /<m:borderBox>/);
+  assert.match(omml, /<m:t[^>]*>结论<\/m:t>/);
+});
+
+test("creates a DOCX-compatible ZIP containing editable equation XML", async () => {
+  const documentXml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><w:body><w:p><m:oMath><m:r><m:t>x</m:t></m:r></m:oMath></w:p></w:body></w:document>';
+  const blob = createStoredZip([{ name: "word/document.xml", data: documentXml }]);
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const decoded = new TextDecoder().decode(bytes);
+
+  assert.equal(bytes[0], 0x50);
+  assert.equal(bytes[1], 0x4b);
+  assert.match(decoded, /word\/document\.xml/);
+  assert.match(decoded, /<m:oMath>/);
+});
+
+test("builds a complete DOCX package with an editable inline formula", async () => {
+  const mathToken = (localName, textContent = "", children = []) => ({
+    nodeType: 1,
+    localName,
+    children,
+    childNodes: children,
+    textContent,
+    getAttribute() {
+      return "";
+    },
+  });
+  const math = mathToken("math", "", [
+    mathToken("msup", "", [mathToken("mi", "x"), mathToken("mn", "2")]),
+  ]);
+  const formula = {
+    nodeType: 1,
+    tagName: "SPAN",
+    classList: { contains: (name) => name === "math-expression" },
+    dataset: { display: "false", latex: encodeURIComponent("x^2") },
+    childNodes: [],
+    querySelector: (selector) => selector === "math" ? math : null,
+  };
+  const paragraph = {
+    nodeType: 1,
+    tagName: "P",
+    classList: { contains: () => false },
+    childNodes: [{ nodeType: 3, nodeValue: "公式：" }, formula],
+  };
+  const preview = {
+    children: [paragraph],
+    querySelectorAll: () => [],
+  };
+
+  const blob = await buildDocxBlob(preview);
+  const decoded = new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
+
+  assert.match(decoded, /\[Content_Types\]\.xml/);
+  assert.match(decoded, /word\/document\.xml/);
+  assert.match(decoded, /word\/styles\.xml/);
+  assert.match(decoded, /<m:oMath>/);
+  assert.match(decoded, /<m:sSup>/);
+});
+
 test("page embeds Mermaid for offline use and exposes a render hook", () => {
   assert.match(html, /id="mermaidOfflineRuntime"/);
   assert.match(html, /globalThis\["mermaid"\]/);
@@ -72,6 +264,26 @@ test("page embeds Mermaid for offline use and exposes a render hook", () => {
   assert.match(html, /window\.md2docRenderMermaid/);
   assert.match(html, /prepareMermaidImagesForCopy/);
   assert.match(html, /toDataURL\("image\/png"\)/);
+});
+
+test("page embeds KaTeX and exports editable OMML equations to DOCX", () => {
+  assert.match(html, /id="katexOfflineRuntime"/);
+  assert.match(html, /id="exportDocxButton"/);
+  assert.match(html, /output: "mathml"/);
+  assert.match(html, /function mathMlNodeToOmml/);
+  assert.match(html, /<m:oMathPara>/);
+  assert.match(html, /<m:oMath>/);
+  assert.match(html, /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/);
+  assert.match(html, /function buildDocxBlob/);
+  assert.match(html, /function exportDocx/);
+  assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/npm\/katex/);
+});
+
+test("rich clipboard prepares formula images for stable Word appearance", () => {
+  assert.match(html, /prepareMathImagesForCopy/);
+  assert.match(html, /mathElementToPngDataUrl/);
+  assert.match(html, /data-md2doc-math-image="true"/);
+  assert.match(html, /replaceMathExpressionsInClone/);
 });
 
 test("page has no external executable or stylesheet dependencies", () => {
