@@ -219,7 +219,7 @@
       gap: 10px;
     }
 
-    .file-open-button {
+    .source-action-button {
       appearance: none;
       min-width: 72px;
       height: 28px;
@@ -234,22 +234,22 @@
       white-space: nowrap;
     }
 
-    .file-open-button:hover {
+    .source-action-button:hover {
       border-color: var(--brand);
       background: #e8f1fb;
     }
 
-    .file-open-button:focus-visible {
+    .source-action-button:focus-visible {
       outline: 2px solid var(--brand);
       outline-offset: 2px;
     }
 
-    .file-open-button.loaded {
+    .source-action-button.loaded {
       border-color: var(--success);
       color: var(--success);
     }
 
-    .file-open-button.failed {
+    .source-action-button.failed {
       border-color: #b42318;
       color: #b42318;
     }
@@ -839,6 +839,14 @@
       }
     }
 
+    @media (max-width: 480px) {
+      .source-pane .pane-header-content,
+      .source-header-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .workspace,
       .pane-header-content,
@@ -871,7 +879,8 @@
             <strong>Markdown 输入</strong>
             <div class="source-header-actions">
               <span id="sourceCount">0 字</span>
-              <button class="file-open-button" id="openMarkdownButton" type="button">打开文件</button>
+              <button class="source-action-button" id="openMarkdownButton" type="button">打开文件</button>
+              <button class="source-action-button" id="pasteMarkdownButton" type="button" title="用剪贴板文本替换当前 Markdown">粘贴</button>
             </div>
           </div>
           <button class="drawer-toggle" id="sourceDrawerToggle" type="button" aria-controls="sourcePane" aria-expanded="true" aria-label="收起 Markdown 输入" title="收起 Markdown 输入"></button>
@@ -2899,6 +2908,41 @@
       });
     }
 
+    function setupMarkdownPaste() {
+      const button = document.getElementById("pasteMarkdownButton");
+      const input = document.getElementById("markdownInput");
+      if (!button || !input) {
+        return;
+      }
+
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          if (!navigator.clipboard?.readText) {
+            throw new Error("当前浏览器不支持读取剪贴板");
+          }
+          const content = await navigator.clipboard.readText();
+          input.value = content;
+          renderMarkdown();
+          input.focus();
+          input.setSelectionRange(0, 0);
+          button.textContent = "已粘贴";
+          button.classList.add("loaded");
+        } catch (error) {
+          button.textContent = "读取失败";
+          button.classList.add("failed");
+          button.title = "请允许读取剪贴板，或在输入框中按 Ctrl+V";
+        } finally {
+          button.disabled = false;
+          window.setTimeout(() => {
+            button.textContent = "粘贴";
+            button.classList.remove("loaded", "failed");
+            button.title = "用剪贴板文本替换当前 Markdown";
+          }, 1800);
+        }
+      });
+    }
+
     function setSourceDrawerCollapsed(collapsed) {
       const workspace = document.getElementById("workspace");
       const input = document.getElementById("markdownInput");
@@ -2943,6 +2987,7 @@
       copyButton.addEventListener("click", copyRichText);
       exportDocxButton.addEventListener("click", exportDocx);
       setupMarkdownFileOpen();
+      setupMarkdownPaste();
       setupSourceDrawer();
       setupMermaidModal();
       setupPreviewToc();
@@ -2985,6 +3030,7 @@
       setupPreviewToc,
       loadMarkdownFile,
       setupMarkdownFileOpen,
+      setupMarkdownPaste,
       setSourceDrawerCollapsed,
       setupSourceDrawer,
       updateBackToTopVisibility,

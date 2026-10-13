@@ -343,6 +343,50 @@ test("page can open a local Markdown file into the input", () => {
   assert.match(html, /fileInput\.value = ""/);
 });
 
+test("paste button replaces Markdown only after clipboard text is read", async () => {
+  const previousDocument = sandbox.document;
+  const previousNavigator = sandbox.navigator;
+  const previousSetTimeout = sandbox.window.setTimeout;
+  const input = {
+    value: "原有内容",
+    focus() {},
+    setSelectionRange() {},
+  };
+  const preview = { innerHTML: "" };
+  const sourceCount = { textContent: "" };
+  const button = {
+    textContent: "粘贴",
+    title: "",
+    disabled: false,
+    classList: { add() {}, remove() {} },
+    addEventListener(event, handler) {
+      if (event === "click") this.clickHandler = handler;
+    },
+  };
+  const elements = { pasteMarkdownButton: button, markdownInput: input, preview, sourceCount };
+
+  try {
+    sandbox.document = { getElementById: (id) => elements[id] || null };
+    sandbox.window.setTimeout = () => 0;
+    sandbox.navigator = { clipboard: { readText: async () => "# 新内容" } };
+    sandbox.window.md2doc.setupMarkdownPaste();
+
+    await button.clickHandler();
+    assert.equal(input.value, "# 新内容");
+    assert.match(preview.innerHTML, /<h1>新内容<\/h1>/);
+    assert.equal(sourceCount.textContent, "5 字");
+
+    sandbox.navigator.clipboard.readText = async () => { throw new Error("denied"); };
+    await button.clickHandler();
+    assert.equal(input.value, "# 新内容");
+    assert.equal(button.textContent, "读取失败");
+  } finally {
+    sandbox.document = previousDocument;
+    sandbox.navigator = previousNavigator;
+    sandbox.window.setTimeout = previousSetTimeout;
+  }
+});
+
 test("page exposes an interactive Mermaid zoom modal", () => {
   assert.match(html, /id="mermaidModal"/);
   assert.match(html, /role="dialog"/);
