@@ -49,6 +49,22 @@ test("renders common markdown blocks for rich docx paste", () => {
   assert.match(rendered, /<td>B<\/td>/);
 });
 
+test("renders tables with short delimiter cells", () => {
+  const rendered = markdownToHtml([
+    "| 候选词 | ID | 概率 | 排名 |",
+    "| --- | -------------- | ------ | -- |",
+    "| 住所 | `residence` | 45.13% | 1 |",
+    "| 地址 | `address` | 27.37% | 2 |",
+  ].join("\n"));
+
+  assert.match(rendered, /<table>/);
+  assert.equal((rendered.match(/<th>/g) || []).length, 4);
+  assert.equal((rendered.match(/<td>/g) || []).length, 8);
+  assert.match(rendered, /<td><code>residence<\/code><\/td>/);
+  assert.match(rendered, /<td>45.13%<\/td>/);
+  assert.doesNotMatch(markdownToHtml("| A | B |\n| text | -- |"), /<table>/);
+});
+
 test("renders mermaid code fences as diagram placeholders", () => {
   const source = [
     "```mermaid",
@@ -84,6 +100,28 @@ test("renders inline and display math placeholders", () => {
   assert.match(rendered, /<math/);
   assert.match(rendered, /<msup>/);
   assert.match(rendered, /<mfrac/);
+});
+
+test("renders copied formulas with double-backslash delimiters", () => {
+  const formula = "P_i(T)=\\frac{e^{z_i/T}}{\\sum_j e^{z_j/T}}";
+  const rendered = markdownToHtml([
+    "- \\\\(z_i\\\\)：候选项的原始 Logit。",
+    "- \\\\(T\\\\)：温度参数。",
+    "- \\\\(P_i(T)\\\\)：温度调整后的概率。",
+    "",
+    "\\\\[ " + formula + " \\\\]",
+  ].join("\n"));
+  const formulas = Array.from(rendered.matchAll(/data-latex="([^"]+)"/g), (match) => decodeURIComponent(match[1]));
+  assert.deepEqual(formulas, ["z_i", "T", "P_i(T)", formula]);
+  assert.equal((rendered.match(/math-inline/g) || []).length, 3);
+  assert.equal((rendered.match(/math-display/g) || []).length, 1);
+  assert.match(rendered, /<mfrac/);
+  assert.doesNotMatch(rendered, /math-error/);
+
+  const multiline = markdownToHtml(["\\\\[", "x^2", "\\\\]"].join("\n"));
+  assert.match(multiline, /math-display/);
+  assert.match(multiline, /<msup>/);
+  assert.doesNotMatch(multiline, /math-error/);
 });
 
 test("accepts copied display math with bare square bracket delimiters", () => {

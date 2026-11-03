@@ -1081,7 +1081,7 @@
       const mathTokens = [];
       let source = String(value || "");
 
-      source = source.replace(/\\\((.+?)\\\)/g, (_, formula) => {
+      source = source.replace(/\\{1,2}\((.+?)\\{1,2}\)/g, (_, formula) => {
         const token = "\u0000MATH" + mathTokens.length + "\u0000";
         mathTokens.push(renderMathExpression(formula, false));
         return token;
@@ -1126,7 +1126,7 @@
       if (!trimmed.includes("|")) {
         return false;
       }
-      return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed);
+      return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(trimmed);
     }
 
     function isBareBracketMathBlock(lines, startIndex) {
@@ -1253,7 +1253,7 @@
         }
 
         const singleLineMath = trimmed.match(/^\$\$([\s\S]+)\$\$$/)
-          || trimmed.match(/^\\\[([\s\S]+)\\\]$/)
+          || trimmed.match(/^\\{1,2}\[([\s\S]+?)\\{1,2}\]$/)
           || trimmed.match(/^\[\s*([^\]]*(?:\\[A-Za-z]+|[=^_+*/])[^\]]*)\s*\]$/);
         if (singleLineMath) {
           flushParagraph();
@@ -1262,10 +1262,10 @@
           continue;
         }
 
-        if (trimmed === "$$" || trimmed === "\\[" || (trimmed === "[" && isBareBracketMathBlock(lines, index))) {
+        if (trimmed === "$$" || /^\\{1,2}\[$/.test(trimmed) || (trimmed === "[" && isBareBracketMathBlock(lines, index))) {
           flushParagraph();
           closeList();
-          mathEnd = trimmed === "$$" ? "$$" : (trimmed === "[" ? "]" : "\\]");
+          mathEnd = trimmed === "$$" ? "$$" : trimmed.slice(0, -1) + "]";
           mathLines = [];
           continue;
         }
