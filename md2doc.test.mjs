@@ -49,6 +49,23 @@ test("renders common markdown blocks for rich docx paste", () => {
   assert.match(rendered, /<td>B<\/td>/);
 });
 
+test("preserves explicit line breaks and escaped punctuation in copied Markdown", () => {
+  const rendered = markdownToHtml([
+    "@open-design\\",
+    "\\",
+    "使用 Local Codex 模式。\\",
+    "\\",
+    "要求：\\",
+    "1\\. 生成完整的 HTML/CSS 设计稿。\\",
+    "2\\. 不修改 src/ 目录。",
+  ].join("\n"));
+  assert.equal(rendered, "<p>@open-design<br><br>使用 Local Codex 模式。<br><br>要求：<br>1. 生成完整的 HTML/CSS 设计稿。<br>2. 不修改 src/ 目录。</p>");
+  assert.equal(markdownToHtml("第一行\n第二行"), "<p>第一行 第二行</p>");
+  assert.equal(markdownToHtml("第一行  \n第二行"), "<p>第一行<br>第二行</p>");
+  assert.equal(markdownToHtml("\\*普通文字\\*"), "<p>*普通文字*</p>");
+  assert.equal(markdownToHtml("反斜杠\\\\\n下一行"), "<p>反斜杠\\ 下一行</p>");
+});
+
 test("renders tables with short delimiter cells", () => {
   const rendered = markdownToHtml([
     "| 候选词 | ID | 概率 | 排名 |",

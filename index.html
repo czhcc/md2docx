@@ -1079,6 +1079,7 @@
     function inlineMarkdown(value) {
       const codeTokens = [];
       const mathTokens = [];
+      const escapeTokens = [];
       let source = String(value || "");
 
       source = source.replace(/\\{1,2}\((.+?)\\{1,2}\)/g, (_, formula) => {
@@ -1100,6 +1101,13 @@
         return token;
       });
 
+      html = html.replace(/\\([\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])/g, (_, punctuation) => {
+        const token = "\u0000ESCAPE" + escapeTokens.length + "\u0000";
+        escapeTokens.push(punctuation);
+        return token;
+      });
+      html = html.replace(/\\\n| {2,}\n/g, "<br>").replace(/\n/g, " ");
+
       html = html.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, src) => {
         return '<img src="' + escapeAttribute(src) + '" alt="' + escapeAttribute(alt) + '">';
       });
@@ -1116,6 +1124,9 @@
       });
       mathTokens.forEach((math, index) => {
         html = html.replace("\u0000MATH" + index + "\u0000", math);
+      });
+      escapeTokens.forEach((punctuation, index) => {
+        html = html.replace("\u0000ESCAPE" + index + "\u0000", () => punctuation);
       });
 
       return html;
@@ -1198,7 +1209,7 @@
 
       function flushParagraph() {
         if (paragraph.length > 0) {
-          output.push("<p>" + inlineMarkdown(paragraph.join(" ")) + "</p>");
+          output.push("<p>" + inlineMarkdown(paragraph.join("\n")) + "</p>");
           paragraph = [];
         }
       }
@@ -1334,7 +1345,7 @@
         }
 
         closeList();
-        paragraph.push(trimmed);
+        paragraph.push(line.trimStart());
       }
 
       if (inCode) {
